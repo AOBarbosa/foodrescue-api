@@ -1,0 +1,20 @@
+name: Guard main branch
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, edited]
+
+jobs:
+  check-source-branch:
+    name: Only allow develop -> main
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify head branch is develop
+        run: |
+          if [ "${{ github.head_ref }}" != "develop" ]; then
+            echo "PRs into 'main' are only allowed from 'develop'. This PR's source branch is '${{ github.head_ref }}'."
+            echo "Merge your branch into 'develop' first; 'main' is only updated by promoting 'develop'."
+            exit 1
+          fi
+          echo "OK: source branch is 'develop'."
