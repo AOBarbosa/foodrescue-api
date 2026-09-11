@@ -9,6 +9,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 
 import org.hibernate.envers.Audited;
 
@@ -36,18 +38,22 @@ public class Consumer extends AbstractEntity {
     /**
      * Name of the consumer.
      */
+    @NotBlank
     @Column(nullable = false)
     private String name;
 
     /**
      * Login email of the consumer.
      */
+    @NotBlank
+    @Email
     @Column(nullable = false, unique = true)
     private String email;
 
     /**
      * Hashed password of the consumer.
      */
+    @NotBlank
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
