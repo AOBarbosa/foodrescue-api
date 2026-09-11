@@ -1,5 +1,7 @@
 package br.com.seudominio.foodrescue.domain.dtos;
 
+import jakarta.validation.constraints.NotBlank;
+
 /**
  * Login credentials, shared by every actor that authenticates against the platform.
  *
@@ -9,5 +11,5 @@ package br.com.seudominio.foodrescue.domain.dtos;
  * @author Andre Barbosa
  * @since 1.0.0
  */
-public record LoginRequest(String email, String password) {
+public record LoginRequest(@NotBlank String email, @NotBlank String password) {
 }

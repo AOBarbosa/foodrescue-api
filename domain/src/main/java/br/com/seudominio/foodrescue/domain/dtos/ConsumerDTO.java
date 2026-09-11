@@ -1,5 +1,8 @@
 package br.com.seudominio.foodrescue.domain.dtos;
 
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+
 /**
  * DTO for {@code Consumer}. {@code password} carries the raw password on the
  * way in (register); {@link br.com.seudominio.foodrescue.domain.mappers.DTOMapper}
@@ -14,5 +17,9 @@ package br.com.seudominio.foodrescue.domain.dtos;
  * @author Andre Barbosa
  * @since 1.0.0
  */
-public record ConsumerDTO(Long id, String name, String email, String password) {
+public record ConsumerDTO(
+        Long id,
+        @NotBlank String name,
+        @NotBlank @Email String email,
+        @NotBlank String password) {
 }
