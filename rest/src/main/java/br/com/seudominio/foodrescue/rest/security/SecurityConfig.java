@@ -2,6 +2,7 @@ package br.com.seudominio.foodrescue.rest.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -17,10 +18,12 @@ import java.util.List;
 
 /**
  * Stateless JWT security configuration. Establishment (UC01, issue #2) and
- * Consumer registration/login are the only public routes here; every other
- * route requires a valid bearer token, with fine-grained role checks left to
- * each controller's own {@code @PreAuthorize} ({@code @EnableMethodSecurity}
- * is on).
+ * Consumer registration/login are the only public non-GET routes here, plus
+ * the establishment directory ({@code GET /establishments} and
+ * {@code GET /establishments/{id}}, a public browsing surface for
+ * consumers); every other route requires a valid bearer token, with
+ * fine-grained role/ownership checks left to each controller's own
+ * {@code @PreAuthorize} ({@code @EnableMethodSecurity} is on).
  *
  * @author Andre Barbosa
  * @since 1.0.0
@@ -38,6 +41,11 @@ public class SecurityConfig {
             "/v3/api-docs/**",
             "/swagger-ui/**",
             "/swagger-ui.html"
+    };
+
+    private static final String[] PUBLIC_GET_PATHS = {
+            "/establishments",
+            "/establishments/{id}"
     };
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -75,6 +83,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(requests -> requests
                         .requestMatchers(PUBLIC_PATHS).permitAll()
+                        .requestMatchers(HttpMethod.GET, PUBLIC_GET_PATHS).permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(handling -> handling
                         .authenticationEntryPoint(restAuthenticationEntryPoint)
