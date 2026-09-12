@@ -5,6 +5,15 @@
     xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
     http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
 
-    <!-- Migrations serão adicionadas aqui conforme as entidades forem criadas -->
+    <include file="db/changelog/changes/0001-create-sequences.xml"/>
+    <include file="db/changelog/changes/0002-create-revinfo-table.xml"/>
+    <include file="db/changelog/changes/0003-create-establishments-table.xml"/>
+    <include file="db/changelog/changes/0004-create-products-table.xml"/>
+    <include file="db/changelog/changes/0005-create-sales-table.xml"/>
+    <include file="db/changelog/changes/0006-create-offers-table.xml"/>
+    <include file="db/changelog/changes/0007-create-consumers-table.xml"/>
+    <include file="db/changelog/changes/0008-create-offer-orders-table.xml"/>
+    <include file="db/changelog/changes/0009-create-ai-recommendations-table.xml"/>
+    <include file="db/changelog/changes/0010-create-envers-audit-tables.xml"/>
 
 </databaseChangeLog>

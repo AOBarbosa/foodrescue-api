@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0001-1-create-sequences" author="andre.barbosa">
+        <createSequence sequenceName="seq_establishment" startValue="1" incrementBy="1"/>
+        <createSequence sequenceName="seq_product" startValue="1" incrementBy="1"/>
+        <createSequence sequenceName="seq_sale" startValue="1" incrementBy="1"/>
+        <createSequence sequenceName="seq_offer" startValue="1" incrementBy="1"/>
+        <createSequence sequenceName="seq_offer_order" startValue="1" incrementBy="1"/>
+        <createSequence sequenceName="seq_consumer" startValue="1" incrementBy="1"/>
+        <createSequence sequenceName="seq_ai_recommendation" startValue="1" incrementBy="1"/>
+        <createSequence sequenceName="seq_revinfo" startValue="1" incrementBy="1"/>
+    </changeSet>
+
+</databaseChangeLog>

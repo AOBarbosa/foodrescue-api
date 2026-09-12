@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Hibernate Envers ("@Audited") history tables: one "*_aud" row per
+         insert/update/delete on the audited entity, linked to "revinfo" by
+         "rev". Column set and nullability were captured by generating the
+         schema with Hibernate itself (ddl-auto=create) against these exact
+         entity mappings, then transcribing it here — Envers does not audit
+         the AbstractEntity technical columns (active/creation_date/
+         modification_date) or @Version columns, so those are intentionally
+         absent from every "*_aud" table below. -->
+
+    <changeSet id="0010-1-create-establishments-aud-table" author="andre.barbosa">
+        <createTable tableName="establishments_aud">
+            <column name="rev" type="INT">
+                <constraints nullable="false" foreignKeyName="fk_establishments_aud_rev" references="revinfo(id)"/>
+            </column>
+            <column name="revtype" type="SMALLINT"/>
+            <column name="id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="address" type="VARCHAR(255)"/>
+            <column name="category" type="VARCHAR(255)"/>
+            <column name="cnpj" type="VARCHAR(255)"/>
+            <column name="email" type="VARCHAR(255)"/>
+            <column name="name" type="VARCHAR(255)"/>
+            <column name="password_hash" type="VARCHAR(255)"/>
+        </createTable>
+        <addPrimaryKey tableName="establishments_aud" columnNames="rev, id" constraintName="establishments_aud_pkey"/>
+    </changeSet>
+
+    <changeSet id="0010-2-create-products-aud-table" author="andre.barbosa">
+        <createTable tableName="products_aud">
+            <column name="rev" type="INT">
+                <constraints nullable="false" foreignKeyName="fk_products_aud_rev" references="revinfo(id)"/>
+            </column>
+            <column name="revtype" type="SMALLINT"/>
+            <column name="id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="establishment_id" type="BIGINT"/>
+            <column name="name" type="VARCHAR(255)"/>
+            <column name="category" type="VARCHAR(255)"/>
+            <column name="original_price" type="NUMERIC(38,2)"/>
+            <column name="current_price" type="NUMERIC(38,2)"/>
+            <column name="photo_url" type="VARCHAR(255)"/>
+            <column name="stock_quantity" type="INT"/>
+            <column name="expiration_date" type="DATE"/>
+        </createTable>
+        <addPrimaryKey tableName="products_aud" columnNames="rev, id" constraintName="products_aud_pkey"/>
+    </changeSet>
+
+    <changeSet id="0010-3-create-sales-aud-table" author="andre.barbosa">
+        <createTable tableName="sales_aud">
+            <column name="rev" type="INT">
+                <constraints nullable="false" foreignKeyName="fk_sales_aud_rev" references="revinfo(id)"/>
+            </column>
+            <column name="revtype" type="SMALLINT"/>
+            <column name="id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="product_id" type="BIGINT"/>
+            <column name="quantity" type="INT"/>
+            <column name="unit_price" type="NUMERIC(38,2)"/>
+            <column name="sold_at" type="TIMESTAMP(6)"/>
+        </createTable>
+        <addPrimaryKey tableName="sales_aud" columnNames="rev, id" constraintName="sales_aud_pkey"/>
+    </changeSet>
+
+    <changeSet id="0010-4-create-offers-aud-table" author="andre.barbosa">
+        <createTable tableName="offers_aud">
+            <column name="rev" type="INT">
+                <constraints nullable="false" foreignKeyName="fk_offers_aud_rev" references="revinfo(id)"/>
+            </column>
+            <column name="revtype" type="SMALLINT"/>
+            <column name="id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="product_id" type="BIGINT"/>
+            <column name="discounted_price" type="NUMERIC(38,2)"/>
+            <column name="available_quantity" type="INT"/>
+            <column name="expires_at" type="TIMESTAMP(6)"/>
+            <column name="status" type="VARCHAR(255)"/>
+            <column name="priority" type="BOOLEAN"/>
+        </createTable>
+        <addPrimaryKey tableName="offers_aud" columnNames="rev, id" constraintName="offers_aud_pkey"/>
+    </changeSet>
+
+    <changeSet id="0010-5-create-offer-orders-aud-table" author="andre.barbosa">
+        <createTable tableName="offer_orders_aud">
+            <column name="rev" type="INT">
+                <constraints nullable="false" foreignKeyName="fk_offer_orders_aud_rev" references="revinfo(id)"/>
+            </column>
+            <column name="revtype" type="SMALLINT"/>
+            <column name="id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="offer_id" type="BIGINT"/>
+            <column name="consumer_id" type="BIGINT"/>
+            <column name="quantity" type="INT"/>
+            <column name="status" type="VARCHAR(255)"/>
+        </createTable>
+        <addPrimaryKey tableName="offer_orders_aud" columnNames="rev, id" constraintName="offer_orders_aud_pkey"/>
+    </changeSet>
+
+    <changeSet id="0010-6-create-consumers-aud-table" author="andre.barbosa">
+        <createTable tableName="consumers_aud">
+            <column name="rev" type="INT">
+                <constraints nullable="false" foreignKeyName="fk_consumers_aud_rev" references="revinfo(id)"/>
+            </column>
+            <column name="revtype" type="SMALLINT"/>
+            <column name="id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="email" type="VARCHAR(255)"/>
+            <column name="name" type="VARCHAR(255)"/>
+            <column name="password_hash" type="VARCHAR(255)"/>
+        </createTable>
+        <addPrimaryKey tableName="consumers_aud" columnNames="rev, id" constraintName="consumers_aud_pkey"/>
+    </changeSet>
+
+    <changeSet id="0010-7-create-ai-recommendations-aud-table" author="andre.barbosa">
+        <createTable tableName="ai_recommendations_aud">
+            <column name="rev" type="INT">
+                <constraints nullable="false" foreignKeyName="fk_ai_recommendations_aud_rev" references="revinfo(id)"/>
+            </column>
+            <column name="revtype" type="SMALLINT"/>
+            <column name="id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="product_id" type="BIGINT"/>
+            <column name="type" type="VARCHAR(255)"/>
+            <column name="suggested_percentage" type="NUMERIC(38,2)"/>
+            <column name="status" type="VARCHAR(255)"/>
+            <column name="previous_recommendation_id" type="BIGINT"/>
+            <column name="responded_at" type="TIMESTAMP(6)"/>
+        </createTable>
+        <addPrimaryKey tableName="ai_recommendations_aud" columnNames="rev, id" constraintName="ai_recommendations_aud_pkey"/>
+    </changeSet>
+
+    <changeSet id="0010-8-audit-tables-checks" author="andre.barbosa">
+        <sql>
+            ALTER TABLE establishments_aud ADD CONSTRAINT establishments_aud_category_check
+                CHECK (category IN ('BAKERY', 'RESTAURANT', 'MARKET', 'SNACK_BAR'));
+            ALTER TABLE offers_aud ADD CONSTRAINT offers_aud_status_check
+                CHECK (status IN ('ACTIVE', 'CLOSED'));
+            ALTER TABLE offer_orders_aud ADD CONSTRAINT offer_orders_aud_status_check
+                CHECK (status IN ('RESERVED', 'CANCELLED'));
+            ALTER TABLE ai_recommendations_aud ADD CONSTRAINT ai_recommendations_aud_type_check
+                CHECK (type IN ('DISCOUNT', 'SURPLUS_DESTINATION'));
+            ALTER TABLE ai_recommendations_aud ADD CONSTRAINT ai_recommendations_aud_status_check
+                CHECK (status IN ('PENDING', 'ACCEPTED', 'ADJUSTED', 'REFUSED', 'EXPIRED'));
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

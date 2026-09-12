@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0006-1-create-offers-table" author="andre.barbosa">
+        <createTable tableName="offers">
+            <column name="id" type="BIGINT">
+                <constraints primaryKey="true" primaryKeyName="offers_pkey" nullable="false"/>
+            </column>
+            <column name="product_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_offers_product" references="products(id)"/>
+            </column>
+            <column name="discounted_price" type="NUMERIC(38,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="available_quantity" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="expires_at" type="TIMESTAMP(6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="priority" type="BOOLEAN">
+                <constraints nullable="false"/>
+            </column>
+            <column name="version" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="active" type="BOOLEAN"/>
+            <column name="creation_date" type="TIMESTAMP(6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="modification_date" type="TIMESTAMP(6)"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="0006-2-offers-status-check" author="andre.barbosa">
+        <sql>
+            ALTER TABLE offers ADD CONSTRAINT offers_status_check
+                CHECK (status IN ('ACTIVE', 'CLOSED'));
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

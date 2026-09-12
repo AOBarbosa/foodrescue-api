@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0009-1-create-ai-recommendations-table" author="andre.barbosa">
+        <createTable tableName="ai_recommendations">
+            <column name="id" type="BIGINT">
+                <constraints primaryKey="true" primaryKeyName="ai_recommendations_pkey" nullable="false"/>
+            </column>
+            <column name="product_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_ai_recommendations_product" references="products(id)"/>
+            </column>
+            <column name="type" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="suggested_percentage" type="NUMERIC(38,2)"/>
+            <column name="status" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <!-- Self-referencing chain pointer (UC10 traceability); not a JPA
+                 relationship, so no FK constraint here (matches the entity mapping). -->
+            <column name="previous_recommendation_id" type="BIGINT"/>
+            <column name="responded_at" type="TIMESTAMP(6)"/>
+            <column name="active" type="BOOLEAN"/>
+            <column name="creation_date" type="TIMESTAMP(6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="modification_date" type="TIMESTAMP(6)"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="0009-2-ai-recommendations-checks" author="andre.barbosa">
+        <sql>
+            ALTER TABLE ai_recommendations ADD CONSTRAINT ai_recommendations_type_check
+                CHECK (type IN ('DISCOUNT', 'SURPLUS_DESTINATION'));
+            ALTER TABLE ai_recommendations ADD CONSTRAINT ai_recommendations_status_check
+                CHECK (status IN ('PENDING', 'ACCEPTED', 'ADJUSTED', 'REFUSED', 'EXPIRED'));
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Hibernate Envers' revision table: one row per audited transaction, referenced
+         by the "rev" column of every "*_aud" table created in 0010. -->
+    <changeSet id="0002-1-create-revinfo-table" author="andre.barbosa">
+        <createTable tableName="revinfo">
+            <column name="id" type="INT">
+                <constraints primaryKey="true" primaryKeyName="revinfo_pkey" nullable="false"/>
+            </column>
+            <column name="timestamp" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+</databaseChangeLog>
