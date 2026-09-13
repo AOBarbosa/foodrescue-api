@@ -6,8 +6,7 @@ import br.com.seudominio.foodrescue.domain.dtos.EstablishmentUpdateDTO;
 import br.com.seudominio.foodrescue.domain.dtos.LoginRequest;
 import br.com.seudominio.foodrescue.rest.dtos.ApiResponse;
 import br.com.seudominio.foodrescue.rest.dtos.EstablishmentAuthResponse;
-import br.com.seudominio.foodrescue.rest.security.JwtTokenProvider;
-import br.com.seudominio.foodrescue.rest.security.UserRole;
+import br.com.seudominio.foodrescue.rest.security.EstablishmentAuthenticationService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -40,17 +39,19 @@ import java.util.List;
 public class EstablishmentController {
 
     private final EstablishmentService establishmentService;
-    private final JwtTokenProvider jwtTokenProvider;
+    private final EstablishmentAuthenticationService establishmentAuthenticationService;
 
     /**
      * Constructor.
      *
-     * @param establishmentService the establishment service
-     * @param jwtTokenProvider     the JWT provider
+     * @param establishmentService               the establishment service
+     * @param establishmentAuthenticationService the register/login + JWT issuance orchestrator
      */
-    public EstablishmentController(EstablishmentService establishmentService, JwtTokenProvider jwtTokenProvider) {
+    public EstablishmentController(
+            EstablishmentService establishmentService,
+            EstablishmentAuthenticationService establishmentAuthenticationService) {
         this.establishmentService = establishmentService;
-        this.jwtTokenProvider = jwtTokenProvider;
+        this.establishmentAuthenticationService = establishmentAuthenticationService;
     }
 
     /**
@@ -62,10 +63,8 @@ public class EstablishmentController {
     @Operation(summary = "Register a new establishment")
     @PostMapping
     public ResponseEntity<ApiResponse<EstablishmentAuthResponse>> register(@Valid @RequestBody EstablishmentDTO dto) {
-        EstablishmentDTO establishment = establishmentService.save(dto);
-        String token = jwtTokenProvider.generateToken(establishment.id(), UserRole.ESTABLISHMENT);
         return ResponseEntity.status(HttpStatus.CREATED).body(new ApiResponse<>(
-                new EstablishmentAuthResponse(establishment, token),
+                establishmentAuthenticationService.register(dto),
                 "Establishment registered successfully",
                 true,
                 null));
@@ -80,10 +79,8 @@ public class EstablishmentController {
     @Operation(summary = "Log in as an establishment")
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<EstablishmentAuthResponse>> login(@Valid @RequestBody LoginRequest request) {
-        EstablishmentDTO establishment = establishmentService.login(request);
-        String token = jwtTokenProvider.generateToken(establishment.id(), UserRole.ESTABLISHMENT);
         return ResponseEntity.ok(new ApiResponse<>(
-                new EstablishmentAuthResponse(establishment, token),
+                establishmentAuthenticationService.login(request),
                 "Login successful",
                 true,
                 null));
