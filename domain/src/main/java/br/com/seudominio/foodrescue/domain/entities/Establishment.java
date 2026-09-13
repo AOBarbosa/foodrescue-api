@@ -12,6 +12,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 import org.hibernate.envers.Audited;
 
@@ -41,24 +44,28 @@ public class Establishment extends AbstractEntity {
     /**
      * Name of the establishment.
      */
+    @NotBlank
     @Column(nullable = false)
     private String name;
 
     /**
      * CNPJ of the establishment.
      */
+    @NotBlank
     @Column(nullable = false, unique = true)
     private String cnpj;
 
     /**
      * Address of the establishment.
      */
+    @NotBlank
     @Column(nullable = false)
     private String address;
 
     /**
      * Business category of the establishment.
      */
+    @NotNull
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private EstablishmentCategory category;
@@ -66,12 +73,15 @@ public class Establishment extends AbstractEntity {
     /**
      * Login email of the establishment.
      */
+    @NotBlank
+    @Email
     @Column(nullable = false, unique = true)
     private String email;
 
     /**
      * Hashed password of the establishment.
      */
+    @NotBlank
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
