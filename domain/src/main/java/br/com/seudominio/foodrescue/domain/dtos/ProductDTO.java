@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Positive;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * DTO for {@code Product}.
@@ -19,6 +20,7 @@ import java.time.LocalDate;
  * @param stockQuantity     the product's stock quantity
  * @param expirationDate    the product's expiration date
  * @param establishmentId   the product's establishment identifier
+ * @param modificationDate  the date and time of the product's last update
  *
  * @author Clovis Medeiros
  * @since 1.0.0
@@ -32,5 +34,6 @@ public record ProductDTO(
         String photoUrl,
         int stockQuantity,
         LocalDate expirationDate,
-        Long establishmentId) {
+        Long establishmentId,
+        LocalDateTime modificationDate) {
 }

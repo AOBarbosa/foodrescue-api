@@ -79,7 +79,8 @@ public class ProductMapper implements DTOMapper<Product, ProductDTO> {
                 product.getPhotoUrl(),
                 product.getStockQuantity(),
                 product.getExpirationDate(),
-                product.getEstablishment().getId()
+                product.getEstablishment().getId(),
+                product.getModificationDate()
         );
     }
 
