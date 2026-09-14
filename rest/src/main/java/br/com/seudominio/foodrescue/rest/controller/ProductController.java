@@ -8,6 +8,7 @@ import br.com.seudominio.foodrescue.rest.security.AuthenticatedPrincipal;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -42,6 +43,7 @@ public class ProductController {
      * @param principal the authenticated principal
      * @return the registered product
      */
+    @PreAuthorize("hasRole('ROLE_ESTABLISHMENT')")
     @PostMapping
     public ResponseEntity<ApiResponse<ProductDTO>> create(@Valid @RequestBody RegisterProductDTO dto,
                                                           @AuthenticationPrincipal AuthenticatedPrincipal principal) {
@@ -58,6 +60,7 @@ public class ProductController {
      * @param principal the authenticated principal
      * @return the list of authenticated establishment's products
      */
+    @PreAuthorize("hasRole('ROLE_ESTABLISHMENT')")
     @GetMapping
     public ResponseEntity<ApiResponse<List<ProductDTO>>> list(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
         return ResponseEntity.ok(new ApiResponse<>(
@@ -73,6 +76,7 @@ public class ProductController {
      * @param principal the authenticated principal
      * @return the product
      */
+    @PreAuthorize("hasRole('ROLE_ESTABLISHMENT')")
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<ProductDTO>> findById(@PathVariable Long id,
                                                             @AuthenticationPrincipal AuthenticatedPrincipal principal) {
