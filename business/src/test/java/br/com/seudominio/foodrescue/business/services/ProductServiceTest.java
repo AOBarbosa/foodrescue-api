@@ -133,7 +133,7 @@ class ProductServiceTest {
         Product product = product(10L, establishment);
 
         when(establishmentRepository.findById(1L)).thenReturn(Optional.of(establishment));
-        when(productRepository.findAllByEstablishmentId(1L)).thenReturn(List.of(product));
+        when(productRepository.findAllByEstablishmentIdAndActiveTrue(1L)).thenReturn(List.of(product));
 
         List<ProductDTO> result = productService.findAllForEstablishment(1L);
 
