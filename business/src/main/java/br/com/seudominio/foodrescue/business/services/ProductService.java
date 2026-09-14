@@ -80,15 +80,16 @@ public class ProductService extends GenericService<Product, ProductDTO> {
     }
 
     /**
-     * Finds all products for an authenticated establishment.
+     * Finds all active products for an authenticated establishment.
      * @param establishmentId the establishment id
      * @return the list of products
      */
     public List<ProductDTO> findAllForEstablishment(Long establishmentId) {
-        Establishment establishment = establishmentRepository.findById(establishmentId)
-                .orElseThrow(() -> new EntityNotFoundException(Establishment.class, establishmentId));
+        if (!establishmentRepository.existsById(establishmentId)) {
+            throw new EntityNotFoundException(Establishment.class, establishmentId);
+        }
 
-        return productRepository.findAllByEstablishmentId(establishmentId)
+        return productRepository.findAllByEstablishmentIdAndActiveTrue(establishmentId)
                 .stream()
                 .map(productMapper::toDto)
                 .toList();

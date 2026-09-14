@@ -20,5 +20,5 @@ public interface ProductRepository extends GenericRepository<Product> {
      * @param establishmentId the establishment id.
      * @return an optional list of products if found, or empty if not found.
      */
-    List<Product> findAllByEstablishmentId(Long establishmentId);
+    List<Product> findAllByEstablishmentIdAndActiveTrue(Long establishmentId);
 }
