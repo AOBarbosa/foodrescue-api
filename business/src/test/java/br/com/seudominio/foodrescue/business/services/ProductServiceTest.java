@@ -132,7 +132,7 @@ class ProductServiceTest {
         Establishment establishment = establishment(1L, "Padaria da Esquina");
         Product product = product(10L, establishment);
 
-        when(establishmentRepository.findById(1L)).thenReturn(Optional.of(establishment));
+        when(establishmentRepository.existsById(1L)).thenReturn(true);
         when(productRepository.findAllByEstablishmentIdAndActiveTrue(1L)).thenReturn(List.of(product));
 
         List<ProductDTO> result = productService.findAllForEstablishment(1L);
