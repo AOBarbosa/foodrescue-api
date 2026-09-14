@@ -1,9 +1,12 @@
 package br.com.seudominio.foodrescue.core.money;
 
 import br.com.seudominio.foodrescue.core.percentage.Percentage;
+import br.com.seudominio.foodrescue.core.validation.ValidationError;
+import br.com.seudominio.foodrescue.core.validation.exception.ValidationException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -34,7 +37,12 @@ public final class Money {
     public static Money of(BigDecimal amount) {
         Objects.requireNonNull(amount, "amount must not be null");
         if (amount.compareTo(BigDecimal.ZERO) < 0) {
-            throw new IllegalArgumentException("amount must not be negative, got: " + amount);
+            ValidationError error = new ValidationError(
+                    "amount must not be negative",
+                    "amount",
+                    amount,
+                    "NEGATIVE_AMOUNT");
+            throw new ValidationException("Invalid money amount", List.of(error));
         }
         return new Money(amount.setScale(SCALE, RoundingMode.HALF_UP));
     }

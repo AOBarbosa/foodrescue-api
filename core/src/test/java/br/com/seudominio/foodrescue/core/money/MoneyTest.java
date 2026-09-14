@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import br.com.seudominio.foodrescue.core.percentage.Percentage;
 import java.math.BigDecimal;
+
+import br.com.seudominio.foodrescue.core.validation.exception.ValidationException;
 import org.junit.jupiter.api.Test;
 
 class MoneyTest {
@@ -12,7 +14,7 @@ class MoneyTest {
     @Test
     void rejectsNegativeAmount() {
         assertThatThrownBy(() -> Money.of(BigDecimal.valueOf(-1)))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(ValidationException.class);
     }
 
     @Test

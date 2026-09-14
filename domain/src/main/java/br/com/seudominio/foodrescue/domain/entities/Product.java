@@ -16,6 +16,8 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import org.hibernate.envers.Audited;
 
 import java.time.LocalDate;
@@ -50,18 +52,21 @@ public class Product extends AbstractEntity {
     /**
      * Name of the product.
      */
+    @NotBlank
     @Column(nullable = false)
     private String name;
 
     /**
      * Category of the product.
      */
+    @NotBlank
     @Column(nullable = false)
     private String category;
 
     /**
      * Original (non-discounted) price of the product.
      */
+    @NotNull
     @Convert(converter = MoneyConverter.class)
     @Column(name = "original_price", nullable = false)
     private Money originalPrice;
