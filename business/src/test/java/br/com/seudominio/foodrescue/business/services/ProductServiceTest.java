@@ -122,8 +122,8 @@ class ProductServiceTest {
         when(establishmentRepository.findById(1L)).thenReturn(Optional.of(establishment(1L, "Padaria da Esquina")));
 
         assertThatThrownBy(() -> productService.registerProduct(dto, 1L))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("amount must not be negative");
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Invalid money amount");
     }
 
 
