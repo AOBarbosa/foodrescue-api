@@ -3,16 +3,22 @@ package br.com.seudominio.foodrescue.business.services;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import br.com.seudominio.foodrescue.business.validation.validators.ProductBusinessValidator;
+import br.com.seudominio.foodrescue.core.time.TimeProvider;
 import br.com.seudominio.foodrescue.core.utils.MessageUtils;
 import br.com.seudominio.foodrescue.core.validation.exception.ValidationException;
 import br.com.seudominio.foodrescue.domain.dtos.ProductDTO;
+import br.com.seudominio.foodrescue.domain.dtos.ProductInventoryUpdateDTO;
 import br.com.seudominio.foodrescue.domain.dtos.RegisterProductDTO;
+import br.com.seudominio.foodrescue.domain.dtos.UpdateProductInventoryRequest;
 import br.com.seudominio.foodrescue.domain.entities.Establishment;
 import br.com.seudominio.foodrescue.domain.entities.Product;
+import br.com.seudominio.foodrescue.domain.exception.BusinessRuleViolationException;
 import br.com.seudominio.foodrescue.domain.exception.EntityNotFoundException;
 import br.com.seudominio.foodrescue.domain.mappers.ProductMapper;
 import br.com.seudominio.foodrescue.persistence.repositories.EstablishmentRepository;
@@ -24,20 +30,27 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
 class ProductServiceTest {
 
+    private static final LocalDateTime NOW = LocalDateTime.of(2026, 9, 14, 12, 0);
+
     private ProductRepository productRepository;
     private EstablishmentRepository establishmentRepository;
+    private TimeProvider timeProvider;
     private ProductService productService;
 
     @BeforeEach
     void setUp() {
         productRepository = mock(ProductRepository.class);
         establishmentRepository = mock(EstablishmentRepository.class);
+        timeProvider = mock(TimeProvider.class);
+        when(timeProvider.now()).thenReturn(NOW);
 
         ProductMapper productMapper = new ProductMapper();
 
@@ -49,7 +62,7 @@ class ProductServiceTest {
 
         productService = new ProductService(
                 productRepository, establishmentRepository, productMapper,
-                beanValidator, messageUtils, productValidator);
+                beanValidator, messageUtils, productValidator, timeProvider);
     }
 
     private RegisterProductDTO registerDto(BigDecimal originalPrice) {
@@ -181,5 +194,136 @@ class ProductServiceTest {
 
         assertThatThrownBy(() -> productService.findByIdForEstablishment(404L, 1L))
                 .isInstanceOf(EntityNotFoundException.class);
+    }
+
+    @Test
+    void updateInventoryChangesStockAndExpirationDateAndReturnsUpdatedProduct() {
+        Product product = product(10L, establishment(1L, "Padaria da Esquina"));
+        LocalDate newExpirationDate = NOW.toLocalDate().plusDays(5);
+        when(productRepository.findById(10L)).thenReturn(Optional.of(product));
+        mockInventorySave();
+
+        ProductInventoryUpdateDTO result = productService.updateInventory(
+                10L, 1L, new UpdateProductInventoryRequest(8, newExpirationDate));
+
+        assertThat(result.product().stockQuantity()).isEqualTo(8);
+        assertThat(result.product().expirationDate()).isEqualTo(newExpirationDate);
+        assertThat(result.product().modificationDate()).isEqualTo(NOW);
+        assertThat(result.expirationDateInPast()).isFalse();
+        verify(productRepository).saveAndFlush(product);
+    }
+
+    @Test
+    void updateInventoryChangesOnlyTheInformedField() {
+        Product product = product(10L, establishment(1L, "Padaria da Esquina"));
+        LocalDate originalExpirationDate = NOW.toLocalDate().plusDays(3);
+        product.setStockQuantity(2);
+        product.setExpirationDate(originalExpirationDate);
+        when(productRepository.findById(10L)).thenReturn(Optional.of(product));
+        mockInventorySave();
+
+        ProductInventoryUpdateDTO result = productService.updateInventory(
+                10L, 1L, new UpdateProductInventoryRequest(7, null));
+
+        assertThat(result.product().stockQuantity()).isEqualTo(7);
+        assertThat(result.product().expirationDate()).isEqualTo(originalExpirationDate);
+    }
+
+    @Test
+    void updateInventoryAcceptsZeroStock() {
+        Product product = product(10L, establishment(1L, "Padaria da Esquina"));
+        product.setStockQuantity(3);
+        when(productRepository.findById(10L)).thenReturn(Optional.of(product));
+        mockInventorySave();
+
+        ProductInventoryUpdateDTO result = productService.updateInventory(
+                10L, 1L, new UpdateProductInventoryRequest(0, null));
+
+        assertThat(result.product().stockQuantity()).isZero();
+        verify(productRepository).saveAndFlush(product);
+    }
+
+    @Test
+    void updateInventoryWithNegativeStockThrowsBusinessRuleViolationException() {
+        Product product = product(10L, establishment(1L, "Padaria da Esquina"));
+        when(productRepository.findById(10L)).thenReturn(Optional.of(product));
+
+        assertThatThrownBy(() -> productService.updateInventory(
+                10L, 1L, new UpdateProductInventoryRequest(-1, null)))
+                .isInstanceOf(BusinessRuleViolationException.class)
+                .hasMessage("stockQuantity must not be negative");
+
+        verify(productRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void updateInventoryWithPastExpirationDateSavesAndReturnsWarning() {
+        Product product = product(10L, establishment(1L, "Padaria da Esquina"));
+        LocalDate pastDate = NOW.toLocalDate().minusDays(1);
+        when(productRepository.findById(10L)).thenReturn(Optional.of(product));
+        mockInventorySave();
+
+        ProductInventoryUpdateDTO result = productService.updateInventory(
+                10L, 1L, new UpdateProductInventoryRequest(null, pastDate));
+
+        assertThat(result.product().expirationDate()).isEqualTo(pastDate);
+        assertThat(result.expirationDateInPast()).isTrue();
+        verify(productRepository).saveAndFlush(product);
+    }
+
+    @Test
+    void updateInventoryWithExpirationDateTodayDoesNotReturnWarning() {
+        Product product = product(10L, establishment(1L, "Padaria da Esquina"));
+        when(productRepository.findById(10L)).thenReturn(Optional.of(product));
+        mockInventorySave();
+
+        ProductInventoryUpdateDTO result = productService.updateInventory(
+                10L, 1L, new UpdateProductInventoryRequest(null, NOW.toLocalDate()));
+
+        assertThat(result.expirationDateInPast()).isFalse();
+    }
+
+    @Test
+    void updateInventoryWithoutFieldsThrowsBusinessRuleViolationException() {
+        Product product = product(10L, establishment(1L, "Padaria da Esquina"));
+        when(productRepository.findById(10L)).thenReturn(Optional.of(product));
+
+        assertThatThrownBy(() -> productService.updateInventory(
+                10L, 1L, new UpdateProductInventoryRequest(null, null)))
+                .isInstanceOf(BusinessRuleViolationException.class)
+                .hasMessage("at least one inventory field must be informed");
+
+        verify(productRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void updateInventoryThrowsEntityNotFoundWhenProductDoesNotExist() {
+        when(productRepository.findById(404L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> productService.updateInventory(
+                404L, 1L, new UpdateProductInventoryRequest(2, null)))
+                .isInstanceOf(EntityNotFoundException.class);
+
+        verify(productRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void updateInventoryThrowsEntityNotFoundWhenProductBelongsToAnotherEstablishment() {
+        Product product = product(10L, establishment(2L, "Outro Estabelecimento"));
+        when(productRepository.findById(10L)).thenReturn(Optional.of(product));
+
+        assertThatThrownBy(() -> productService.updateInventory(
+                10L, 1L, new UpdateProductInventoryRequest(2, null)))
+                .isInstanceOf(EntityNotFoundException.class);
+
+        verify(productRepository, never()).saveAndFlush(any());
+    }
+
+    private void mockInventorySave() {
+        when(productRepository.saveAndFlush(any(Product.class))).thenAnswer(invocation -> {
+            Product saved = invocation.getArgument(0);
+            saved.setModificationDate(NOW);
+            return saved;
+        });
     }
 }
