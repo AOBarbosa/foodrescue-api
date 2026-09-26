@@ -22,6 +22,11 @@ import java.util.Map;
  * model's answer as a JSON document that follows a given response schema.
  * Reusable by every AI-backed use case (UC05, UC07, UC10).
  *
+ * <p>Transient server failures (HTTP 5xx, e.g. 503 "high demand") are retried
+ * with exponential backoff before giving up. HTTP 429 (quota exceeded) is not
+ * retried: another attempt within the same minute would only consume more
+ * quota.</p>
+ *
  * <p>Configured through {@code app.ai.gemini.*}; the API key comes from the
  * {@code GEMINI_API_KEY} environment variable and is never committed.</p>
  *
@@ -37,6 +42,8 @@ public class GeminiClient {
     private final String model;
     private final String baseUrl;
     private final Duration timeout;
+    private final int maxRetries;
+    private final Duration initialBackoff;
 
     /**
      * Constructor.
@@ -44,24 +51,32 @@ public class GeminiClient {
      * @param apiKey         the Gemini API key; blank disables the client
      * @param model          the model id, e.g. {@code gemini-3.8-flash}
      * @param baseUrl        the Gemini API base URL
-     * @param timeoutSeconds the maximum time to wait for an answer
+     * @param timeoutSeconds the maximum time to wait for each answer
+     * @param maxRetries     how many times a transient server failure (5xx) is retried
+     * @param backoffMillis  wait before the first retry; doubles on each new retry
      */
     @Autowired
     public GeminiClient(
             @Value("${app.ai.gemini.api-key:}") String apiKey,
             @Value("${app.ai.gemini.model:gemini-3.8-flash}") String model,
             @Value("${app.ai.gemini.base-url:https://generativelanguage.googleapis.com/v1beta}") String baseUrl,
-            @Value("${app.ai.gemini.timeout-seconds:15}") long timeoutSeconds) {
+            @Value("${app.ai.gemini.timeout-seconds:15}") long timeoutSeconds,
+            @Value("${app.ai.gemini.max-retries:2}") int maxRetries,
+            @Value("${app.ai.gemini.backoff-millis:1000}") long backoffMillis) {
         this(HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build(),
-                apiKey, model, baseUrl, Duration.ofSeconds(timeoutSeconds));
+                apiKey, model, baseUrl, Duration.ofSeconds(timeoutSeconds),
+                maxRetries, Duration.ofMillis(backoffMillis));
     }
 
-    GeminiClient(HttpClient httpClient, String apiKey, String model, String baseUrl, Duration timeout) {
+    GeminiClient(HttpClient httpClient, String apiKey, String model, String baseUrl, Duration timeout,
+                 int maxRetries, Duration initialBackoff) {
         this.httpClient = httpClient;
         this.apiKey = apiKey;
         this.model = model;
         this.baseUrl = baseUrl;
         this.timeout = timeout;
+        this.maxRetries = maxRetries;
+        this.initialBackoff = initialBackoff;
     }
 
     /**
@@ -102,9 +117,10 @@ public class GeminiClient {
                         "responseMimeType", "application/json",
                         "responseSchema", responseSchema));
 
-        HttpResponse<String> response = send(body);
+        HttpResponse<String> response = sendWithRetry(body);
         if (response.statusCode() != 200) {
-            throw new GeminiException("Gemini returned HTTP " + response.statusCode() + ": " + response.body());
+            throw new GeminiException("Gemini returned HTTP " + response.statusCode() + ": "
+                    + errorMessage(response.body()));
         }
 
         try {
@@ -117,6 +133,42 @@ public class GeminiClient {
         } catch (JsonProcessingException e) {
             throw new GeminiException("Gemini answer is not valid JSON", e);
         }
+    }
+
+    private HttpResponse<String> sendWithRetry(Map<String, Object> body) {
+        HttpResponse<String> response = send(body);
+        Duration backoff = initialBackoff;
+        for (int retry = 0; retry < maxRetries && isTransient(response.statusCode()); retry++) {
+            sleep(backoff);
+            backoff = backoff.multipliedBy(2);
+            response = send(body);
+        }
+        return response;
+    }
+
+    private boolean isTransient(int statusCode) {
+        return statusCode >= 500;
+    }
+
+    private void sleep(Duration duration) {
+        try {
+            Thread.sleep(duration);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new GeminiException("Gemini call was interrupted", e);
+        }
+    }
+
+    private String errorMessage(String responseBody) {
+        try {
+            JsonNode message = objectMapper.readTree(responseBody).path("error").path("message");
+            if (message.isTextual()) {
+                return message.asText();
+            }
+        } catch (JsonProcessingException e) {
+            // not a JSON error payload; fall through to the raw body
+        }
+        return responseBody;
     }
 
     private HttpResponse<String> send(Map<String, Object> body) {

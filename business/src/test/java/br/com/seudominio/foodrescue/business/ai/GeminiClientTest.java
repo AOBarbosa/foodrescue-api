@@ -16,7 +16,10 @@ import java.net.InetSocketAddress;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 class GeminiClientTest {
@@ -27,6 +30,8 @@ class GeminiClientTest {
     private final AtomicReference<String> receivedKey = new AtomicReference<>();
     private final AtomicReference<String> receivedPath = new AtomicReference<>();
     private final AtomicReference<String> receivedBody = new AtomicReference<>();
+    private final AtomicInteger requestCount = new AtomicInteger();
+    private final Deque<Integer> statuses = new ArrayDeque<>();
     private int status;
     private String responseBody;
 
@@ -37,8 +42,11 @@ class GeminiClientTest {
             receivedKey.set(exchange.getRequestHeaders().getFirst("x-goog-api-key"));
             receivedPath.set(exchange.getRequestURI().getPath());
             receivedBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
-            byte[] bytes = responseBody.getBytes(StandardCharsets.UTF_8);
-            exchange.sendResponseHeaders(status, bytes.length);
+            requestCount.incrementAndGet();
+            int currentStatus = statuses.isEmpty() ? status : statuses.poll();
+            byte[] bytes = (currentStatus == 200 ? responseBody : "{\"error\":{\"message\":\"high demand\"}}")
+                    .getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(currentStatus, bytes.length);
             try (OutputStream out = exchange.getResponseBody()) {
                 out.write(bytes);
             }
@@ -53,7 +61,7 @@ class GeminiClientTest {
 
     private GeminiClient client(String apiKey) {
         return new GeminiClient(HttpClient.newHttpClient(), apiKey, "gemini-test",
-                "http://localhost:" + server.getAddress().getPort(), Duration.ofSeconds(5));
+                "http://localhost:" + server.getAddress().getPort(), Duration.ofSeconds(5), 2, Duration.ZERO);
     }
 
     @Test
@@ -70,13 +78,46 @@ class GeminiClientTest {
     }
 
     @Test
-    void failsOnErrorStatus() {
+    void retriesServerFailuresAndSucceeds() {
+        statuses.add(503);
+        statuses.add(500);
+        status = 200;
+        responseBody = "{\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"{\\\"predictedQuantity\\\": 3}\"}]}}]}";
+
+        JsonNode answer = client("secret").generateJson("prompt", SCHEMA);
+
+        assertThat(answer.path("predictedQuantity").asInt()).isEqualTo(3);
+        assertThat(requestCount.get()).isEqualTo(3);
+    }
+
+    @Test
+    void failsWithApiErrorMessageAfterExhaustingRetries() {
         status = 503;
-        responseBody = "{\"error\":{\"message\":\"high demand\"}}";
 
         assertThatThrownBy(() -> client("secret").generateJson("prompt", SCHEMA))
                 .isInstanceOf(GeminiException.class)
-                .hasMessageContaining("503");
+                .hasMessage("Gemini returned HTTP 503: high demand");
+        assertThat(requestCount.get()).isEqualTo(3);
+    }
+
+    @Test
+    void doesNotRetryClientErrors() {
+        status = 400;
+
+        assertThatThrownBy(() -> client("secret").generateJson("prompt", SCHEMA))
+                .isInstanceOf(GeminiException.class)
+                .hasMessageContaining("400");
+        assertThat(requestCount.get()).isEqualTo(1);
+    }
+
+    @Test
+    void doesNotRetryQuotaExceeded() {
+        status = 429;
+
+        assertThatThrownBy(() -> client("secret").generateJson("prompt", SCHEMA))
+                .isInstanceOf(GeminiException.class)
+                .hasMessageContaining("429");
+        assertThat(requestCount.get()).isEqualTo(1);
     }
 
     @Test
