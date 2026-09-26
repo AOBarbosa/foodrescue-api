@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0011-1-create-demand-forecast-sequence" author="andre.barbosa">
+        <createSequence sequenceName="seq_demand_forecast" startValue="1" incrementBy="1"/>
+    </changeSet>
+
+    <changeSet id="0011-2-create-demand-forecasts-table" author="andre.barbosa">
+        <createTable tableName="demand_forecasts">
+            <column name="id" type="BIGINT">
+                <constraints primaryKey="true" primaryKeyName="demand_forecasts_pkey" nullable="false"/>
+            </column>
+            <column name="product_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_demand_forecasts_product" references="products(id)"/>
+            </column>
+            <column name="predicted_quantity" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="stock_quantity" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="confidence" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="sample_size" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="calculated_at" type="TIMESTAMP(6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="forecast_until" type="TIMESTAMP(6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="active" type="BOOLEAN"/>
+            <column name="creation_date" type="TIMESTAMP(6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="modification_date" type="TIMESTAMP(6)"/>
+        </createTable>
+        <createIndex tableName="demand_forecasts" indexName="idx_demand_forecasts_product_calculated_at">
+            <column name="product_id"/>
+            <column name="calculated_at"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0011-3-create-demand-forecasts-aud-table" author="andre.barbosa">
+        <createTable tableName="demand_forecasts_aud">
+            <column name="rev" type="INT">
+                <constraints nullable="false" foreignKeyName="fk_demand_forecasts_aud_rev" references="revinfo(id)"/>
+            </column>
+            <column name="revtype" type="SMALLINT"/>
+            <column name="id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="product_id" type="BIGINT"/>
+            <column name="predicted_quantity" type="INT"/>
+            <column name="stock_quantity" type="INT"/>
+            <column name="confidence" type="VARCHAR(255)"/>
+            <column name="sample_size" type="INT"/>
+            <column name="calculated_at" type="TIMESTAMP(6)"/>
+            <column name="forecast_until" type="TIMESTAMP(6)"/>
+        </createTable>
+        <addPrimaryKey tableName="demand_forecasts_aud" columnNames="rev, id" constraintName="demand_forecasts_aud_pkey"/>
+    </changeSet>
+
+    <changeSet id="0011-4-demand-forecasts-checks" author="andre.barbosa">
+        <sql>
+            ALTER TABLE demand_forecasts ADD CONSTRAINT demand_forecasts_confidence_check
+                CHECK (confidence IN ('LOW', 'MEDIUM', 'HIGH'));
+            ALTER TABLE demand_forecasts_aud ADD CONSTRAINT demand_forecasts_aud_confidence_check
+                CHECK (confidence IN ('LOW', 'MEDIUM', 'HIGH'));
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

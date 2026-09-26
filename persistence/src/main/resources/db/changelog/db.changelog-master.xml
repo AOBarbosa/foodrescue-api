@@ -15,5 +15,6 @@
     <include file="db/changelog/changes/0008-create-offer-orders-table.xml"/>
     <include file="db/changelog/changes/0009-create-ai-recommendations-table.xml"/>
     <include file="db/changelog/changes/0010-create-envers-audit-tables.xml"/>
+    <include file="db/changelog/changes/0011-create-demand-forecasts-table.xml"/>
 
 </databaseChangeLog>
