@@ -28,6 +28,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/foodrescue
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}
     ports:
       - "8080:8080"
 
