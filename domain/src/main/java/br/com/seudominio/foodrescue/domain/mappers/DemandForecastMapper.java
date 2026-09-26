@@ -32,6 +32,8 @@ public class DemandForecastMapper implements DTOMapper<DemandForecast, DemandFor
                 .stockQuantity(dto.stockQuantity())
                 .confidence(dto.confidence())
                 .sampleSize(dto.sampleSize())
+                .source(dto.source())
+                .rationale(dto.rationale())
                 .calculatedAt(dto.calculatedAt())
                 .forecastUntil(dto.forecastUntil())
                 .build();
@@ -55,6 +57,8 @@ public class DemandForecastMapper implements DTOMapper<DemandForecast, DemandFor
                 forecast.getStockQuantity(),
                 forecast.getConfidence(),
                 forecast.getSampleSize(),
+                forecast.getSource(),
+                forecast.getRationale(),
                 forecast.getCalculatedAt(),
                 forecast.getForecastUntil()
         );

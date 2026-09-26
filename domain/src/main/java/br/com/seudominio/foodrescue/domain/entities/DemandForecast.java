@@ -76,6 +76,18 @@ public class DemandForecast extends AbstractEntity {
     private int sampleSize;
 
     /**
+     * Identifier of the algorithm or AI model that produced the forecast.
+     */
+    @Column(nullable = false, length = 100)
+    private String source;
+
+    /**
+     * Short explanation of the forecast, when the source provides one.
+     */
+    @Column(length = 1000)
+    private String rationale;
+
+    /**
      * Moment the forecast was calculated.
      */
     @Column(name = "calculated_at", nullable = false)
@@ -153,6 +165,22 @@ public class DemandForecast extends AbstractEntity {
         this.sampleSize = sampleSize;
     }
 
+    public String getSource() {
+        return source;
+    }
+
+    public void setSource(String source) {
+        this.source = source;
+    }
+
+    public String getRationale() {
+        return rationale;
+    }
+
+    public void setRationale(String rationale) {
+        this.rationale = rationale;
+    }
+
     public LocalDateTime getCalculatedAt() {
         return calculatedAt;
     }
@@ -172,6 +200,6 @@ public class DemandForecast extends AbstractEntity {
     @Override
     public String toString() {
         return "DemandForecast [id=" + id + ", productId=" + (product == null ? null : product.getId())
-                + ", predictedQuantity=" + predictedQuantity + ", confidence=" + confidence + "]";
+                + ", predictedQuantity=" + predictedQuantity + ", confidence=" + confidence + ", source=" + source + "]";
     }
 }

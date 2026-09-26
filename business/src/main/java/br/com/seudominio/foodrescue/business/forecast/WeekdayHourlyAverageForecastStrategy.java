@@ -28,6 +28,11 @@ import java.util.function.Predicate;
 @Component
 public class WeekdayHourlyAverageForecastStrategy implements DemandForecastStrategy {
 
+    /**
+     * Identifier recorded as the source of the forecasts produced by this strategy.
+     */
+    public static final String SOURCE = "weekday-hourly-average";
+
     private static final int MEDIUM_CONFIDENCE_MIN_DAYS = 2;
     private static final int HIGH_CONFIDENCE_MIN_DAYS = 4;
 
@@ -39,7 +44,8 @@ public class WeekdayHourlyAverageForecastStrategy implements DemandForecastStrat
                 .toList();
 
         if (pastSales.isEmpty() || !context.now().isBefore(context.closingAt())) {
-            return new ForecastResult(0, pastSales.isEmpty() ? ForecastConfidence.LOW : ForecastConfidence.HIGH, 0);
+            return new ForecastResult(0, pastSales.isEmpty() ? ForecastConfidence.LOW : ForecastConfidence.HIGH, 0,
+                    SOURCE, null);
         }
 
         LocalDate firstDay = pastSales.get(0).getSoldAt().toLocalDate();
@@ -72,7 +78,7 @@ public class WeekdayHourlyAverageForecastStrategy implements DemandForecastStrat
         int average = (int) Math.round((double) unitsSold / observedDays);
         int predicted = Math.min(average, Math.max(context.currentStock(), 0));
 
-        return new ForecastResult(predicted, confidence, slotSales.size());
+        return new ForecastResult(predicted, confidence, slotSales.size(), SOURCE, null);
     }
 
     private ForecastConfidence confidenceFor(long observedDays) {

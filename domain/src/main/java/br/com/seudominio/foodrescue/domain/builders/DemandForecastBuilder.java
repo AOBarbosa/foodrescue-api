@@ -20,6 +20,8 @@ public class DemandForecastBuilder {
     private int stockQuantity;
     private ForecastConfidence confidence;
     private int sampleSize;
+    private String source;
+    private String rationale;
     private LocalDateTime calculatedAt;
     private LocalDateTime forecastUntil;
 
@@ -90,6 +92,28 @@ public class DemandForecastBuilder {
     }
 
     /**
+     * Sets the identifier of the algorithm or AI model that produced the forecast.
+     *
+     * @param source the forecast's source
+     * @return the current instance of {@link DemandForecastBuilder}
+     */
+    public DemandForecastBuilder source(String source) {
+        this.source = source;
+        return this;
+    }
+
+    /**
+     * Sets the short explanation of the forecast.
+     *
+     * @param rationale the forecast's explanation
+     * @return the current instance of {@link DemandForecastBuilder}
+     */
+    public DemandForecastBuilder rationale(String rationale) {
+        this.rationale = rationale;
+        return this;
+    }
+
+    /**
      * Sets the moment the forecast was calculated.
      *
      * @param calculatedAt the moment of calculation
@@ -124,6 +148,8 @@ public class DemandForecastBuilder {
         forecast.setStockQuantity(stockQuantity);
         forecast.setConfidence(confidence);
         forecast.setSampleSize(sampleSize);
+        forecast.setSource(source);
+        forecast.setRationale(rationale);
         forecast.setCalculatedAt(calculatedAt);
         forecast.setForecastUntil(forecastUntil);
         return forecast;

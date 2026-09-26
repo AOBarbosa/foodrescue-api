@@ -29,6 +29,10 @@
             <column name="sample_size" type="INT">
                 <constraints nullable="false"/>
             </column>
+            <column name="source" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="rationale" type="VARCHAR(1000)"/>
             <column name="calculated_at" type="TIMESTAMP(6)">
                 <constraints nullable="false"/>
             </column>
@@ -61,6 +65,8 @@
             <column name="stock_quantity" type="INT"/>
             <column name="confidence" type="VARCHAR(255)"/>
             <column name="sample_size" type="INT"/>
+            <column name="source" type="VARCHAR(100)"/>
+            <column name="rationale" type="VARCHAR(1000)"/>
             <column name="calculated_at" type="TIMESTAMP(6)"/>
             <column name="forecast_until" type="TIMESTAMP(6)"/>
         </createTable>

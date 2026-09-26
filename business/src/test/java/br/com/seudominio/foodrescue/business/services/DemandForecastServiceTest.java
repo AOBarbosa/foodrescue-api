@@ -106,6 +106,7 @@ class DemandForecastServiceTest {
         assertThat(response.stockQuantity()).isEqualTo(20);
         assertThat(response.confidence()).isEqualTo(ForecastConfidence.HIGH);
         assertThat(response.sampleSize()).isEqualTo(8);
+        assertThat(response.source()).isEqualTo(WeekdayHourlyAverageForecastStrategy.SOURCE);
         assertThat(response.calculatedAt()).isEqualTo(NOW);
         assertThat(response.forecastUntil()).isEqualTo(LocalDateTime.of(2026, 9, 14, 22, 0));
         verify(forecastRepository).save(any(DemandForecast.class));

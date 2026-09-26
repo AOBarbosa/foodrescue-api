@@ -116,6 +116,8 @@ public class DemandForecastService extends GenericService<DemandForecast, Demand
 
         LocalDateTime closingAt = now.toLocalDate().atTime(closingTime);
         ForecastContext context = ForecastContext.builder()
+                .productName(product.getName())
+                .productCategory(product.getCategory())
                 .salesHistory(salesHistory)
                 .currentStock(product.getStockQuantity())
                 .now(now)
@@ -129,6 +131,8 @@ public class DemandForecastService extends GenericService<DemandForecast, Demand
                 .stockQuantity(product.getStockQuantity())
                 .confidence(result.confidence())
                 .sampleSize(result.sampleSize())
+                .source(result.source())
+                .rationale(result.rationale())
                 .calculatedAt(now)
                 .forecastUntil(closingAt)
                 .build();

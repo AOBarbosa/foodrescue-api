@@ -6,10 +6,12 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Input handed to a {@link DemandForecastStrategy}: the product's sales
- * history, its current stock and the forecast window (from {@code now}
- * until {@code closingAt}).
+ * Input handed to a {@link DemandForecastStrategy}: the product's
+ * description, sales history, current stock and the forecast window (from
+ * {@code now} until {@code closingAt}).
  *
+ * @param productName     the product's name
+ * @param productCategory the product's category
  * @param salesHistory the product's past sales, oldest first
  * @param currentStock the product's current stock quantity
  * @param now          the moment the forecast is calculated
@@ -19,6 +21,8 @@ import java.util.List;
  * @since 1.0.0
  */
 public record ForecastContext(
+        String productName,
+        String productCategory,
         List<Sale> salesHistory,
         int currentStock,
         LocalDateTime now,
@@ -38,10 +42,34 @@ public record ForecastContext(
      */
     public static class Builder {
 
+        private String productName;
+        private String productCategory;
         private List<Sale> salesHistory = List.of();
         private int currentStock;
         private LocalDateTime now;
         private LocalDateTime closingAt;
+
+        /**
+         * Sets the product's name.
+         *
+         * @param productName the product's name
+         * @return the current instance of {@link Builder}
+         */
+        public Builder productName(String productName) {
+            this.productName = productName;
+            return this;
+        }
+
+        /**
+         * Sets the product's category.
+         *
+         * @param productCategory the product's category
+         * @return the current instance of {@link Builder}
+         */
+        public Builder productCategory(String productCategory) {
+            this.productCategory = productCategory;
+            return this;
+        }
 
         /**
          * Sets the product's past sales.
@@ -93,7 +121,7 @@ public record ForecastContext(
          * @return a new instance of {@link ForecastContext}
          */
         public ForecastContext build() {
-            return new ForecastContext(salesHistory, currentStock, now, closingAt);
+            return new ForecastContext(productName, productCategory, salesHistory, currentStock, now, closingAt);
         }
     }
 }
