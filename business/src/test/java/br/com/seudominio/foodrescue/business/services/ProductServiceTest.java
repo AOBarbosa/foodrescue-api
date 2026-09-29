@@ -326,4 +326,51 @@ class ProductServiceTest {
             return saved;
         });
     }
+
+    @Test
+    void deductStockSuccessfullyDecrementsAndSavesProduct() {
+        Product product = product(10L, establishment(1L, "Padaria"));
+        product.setStockQuantity(15);
+        when(productRepository.findById(10L)).thenReturn(Optional.of(product));
+        when(productRepository.save(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Product updated = productService.deductStock(10L, 1L, 5);
+
+        assertThat(updated.getStockQuantity()).isEqualTo(10);
+        verify(productRepository).save(product);
+    }
+
+    @Test
+    void deductStockThrowsBusinessRuleViolationExceptionWhenStockIsInsufficient() {
+        Product product = product(10L, establishment(1L, "Padaria"));
+        product.setStockQuantity(3);
+        when(productRepository.findById(10L)).thenReturn(Optional.of(product));
+
+        assertThatThrownBy(() -> productService.deductStock(10L, 1L, 5))
+                .isInstanceOf(BusinessRuleViolationException.class)
+                .hasMessageContaining("Insufficient stock for product id 10");
+
+        verify(productRepository, never()).save(any());
+    }
+
+    @Test
+    void deductStockThrowsEntityNotFoundExceptionWhenProductBelongsToAnotherEstablishment() {
+        Product product = product(10L, establishment(2L, "Outro Estabelecimento"));
+        when(productRepository.findById(10L)).thenReturn(Optional.of(product));
+
+        assertThatThrownBy(() -> productService.deductStock(10L, 1L, 2))
+                .isInstanceOf(EntityNotFoundException.class);
+
+        verify(productRepository, never()).save(any());
+    }
+
+    @Test
+    void findProductOwnedByReturnsProductWhenOwned() {
+        Product product = product(10L, establishment(1L, "Padaria"));
+        when(productRepository.findById(10L)).thenReturn(Optional.of(product));
+
+        Product found = productService.findProductOwnedBy(10L, 1L);
+
+        assertThat(found).isSameAs(product);
+    }
 }

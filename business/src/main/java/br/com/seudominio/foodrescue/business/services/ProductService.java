@@ -145,7 +145,15 @@ public class ProductService extends GenericService<Product, ProductDTO> {
         return new ProductInventoryUpdateDTO(productMapper.toDto(saved), expirationDateInPast);
     }
 
-    private Product findProductOwnedBy(Long id, Long establishmentId) {
+    /**
+     * Finds a product entity owned by the authenticated establishment.
+     *
+     * @param id              the product id
+     * @param establishmentId the authenticated establishment id
+     * @return the product entity
+     * @throws EntityNotFoundException if the product does not exist or belongs to another establishment
+     */
+    public Product findProductOwnedBy(Long id, Long establishmentId) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException(Product.class, id));
 
@@ -153,6 +161,27 @@ public class ProductService extends GenericService<Product, ProductDTO> {
             throw new EntityNotFoundException(Product.class, id);
         }
         return product;
+    }
+
+    /**
+     * Deducts stock quantity for a product owned by the authenticated establishment.
+     *
+     * @param id              the product id
+     * @param establishmentId the authenticated establishment id
+     * @param quantity        the quantity to deduct
+     * @return the updated product entity
+     * @throws EntityNotFoundException        if the product does not exist or belongs to another establishment
+     * @throws BusinessRuleViolationException if stock quantity is insufficient
+     */
+    public Product deductStock(Long id, Long establishmentId, int quantity) {
+        Product product = findProductOwnedBy(id, establishmentId);
+
+        if (product.getStockQuantity() < quantity) {
+            throw new BusinessRuleViolationException("Insufficient stock for product id " + id);
+        }
+
+        product.setStockQuantity(product.getStockQuantity() - quantity);
+        return productRepository.save(product);
     }
 
     private void validateInventoryRequest(UpdateProductInventoryRequest request) {
