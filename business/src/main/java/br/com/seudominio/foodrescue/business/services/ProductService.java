@@ -1,6 +1,7 @@
 package br.com.seudominio.foodrescue.business.services;
 
 import br.com.seudominio.foodrescue.business.validation.validators.ProductBusinessValidator;
+import br.com.seudominio.foodrescue.core.percentage.Percentage;
 import br.com.seudominio.foodrescue.core.time.TimeProvider;
 import br.com.seudominio.foodrescue.core.utils.MessageUtils;
 import br.com.seudominio.foodrescue.core.validation.BusinessOperation;
@@ -181,6 +182,26 @@ public class ProductService extends GenericService<Product, ProductDTO> {
         }
 
         product.setStockQuantity(product.getStockQuantity() - quantity);
+        return productRepository.save(product);
+    }
+
+    /**
+     * Applies a discount to a product owned by the authenticated establishment (UC07).
+     *
+     * <p>The percentage is always applied to the product's <em>original</em>
+     * price, never to the price already in effect, so "30% off" always means
+     * 30% off the list price and two discounts in a row never compound.</p>
+     *
+     * @param id              the product id
+     * @param establishmentId the authenticated establishment id
+     * @param percentage      the discount percentage to apply
+     * @return the updated product entity
+     * @throws EntityNotFoundException if the product does not exist or belongs to another establishment
+     */
+    public Product applyDiscount(Long id, Long establishmentId, Percentage percentage) {
+        Product product = findProductOwnedBy(id, establishmentId);
+
+        product.setCurrentPrice(product.getOriginalPrice().applyDiscount(percentage));
         return productRepository.save(product);
     }
 
