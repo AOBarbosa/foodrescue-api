@@ -31,4 +31,23 @@ public interface SaleRepository extends GenericRepository<Sale> {
     List<Sale> findByProductAndPeriod(@Param("productId") Long productId,
                                       @Param("start") LocalDateTime start,
                                       @Param("end") LocalDateTime end);
+
+    /**
+     * Finds the active sales of an establishment within a period, oldest first (UC12).
+     *
+     * <p>Uses {@code JOIN FETCH} to eagerly load the associated product and its original price,
+     * avoiding N+1 queries when computing indicators.</p>
+     *
+     * @param establishmentId the establishment identifier
+     * @param start           the start timestamp of the period (inclusive)
+     * @param end             the end timestamp of the period (exclusive)
+     * @return the sales of the establishment within the period
+     */
+    @Query("SELECT s FROM Sale s JOIN FETCH s.product p WHERE p.establishment.id = :establishmentId "
+            + "AND s.active = true AND s.soldAt >= :start AND s.soldAt < :end "
+            + "ORDER BY s.soldAt ASC")
+    List<Sale> findByEstablishmentAndPeriod(
+            @Param("establishmentId") Long establishmentId,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end);
 }
