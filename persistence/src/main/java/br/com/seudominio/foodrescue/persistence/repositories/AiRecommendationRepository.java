@@ -3,8 +3,11 @@ package br.com.seudominio.foodrescue.persistence.repositories;
 import br.com.seudominio.foodrescue.domain.entities.AiRecommendation;
 import br.com.seudominio.foodrescue.domain.enums.RecommendationStatus;
 
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -46,4 +49,24 @@ public interface AiRecommendationRepository extends GenericRepository<AiRecommen
      */
     Optional<AiRecommendation> findFirstByProductIdAndStatusAndActiveTrueOrderByCreationDateDesc(
             Long productId, RecommendationStatus status);
+
+    /**
+     * Finds the active discount recommendations of an establishment responded within a period,
+     * oldest first (UC12).
+     *
+     * <p>Filters by type {@code DISCOUNT} to avoid mixing with future surplus destination recommendations.</p>
+     *
+     * @param establishmentId the establishment identifier
+     * @param start           the start timestamp of the period (inclusive)
+     * @param end             the end timestamp of the period (exclusive)
+     * @return the discount recommendations responded within the period
+     */
+    @Query("SELECT r FROM AiRecommendation r JOIN r.product p WHERE p.establishment.id = :establishmentId "
+            + "AND r.active = true AND r.respondedAt >= :start AND r.respondedAt < :end "
+            + "AND r.type = br.com.seudominio.foodrescue.domain.enums.RecommendationType.DISCOUNT "
+            + "ORDER BY r.respondedAt ASC")
+    List<AiRecommendation> findRespondedByEstablishmentAndPeriod(
+            @Param("establishmentId") Long establishmentId,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end);
 }
