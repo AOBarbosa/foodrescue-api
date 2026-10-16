@@ -1,5 +1,7 @@
 package br.com.seudominio.foodrescue.business.services;
 
+import br.com.seudominio.foodrescue.business.event.DomainEventPublisher;
+import br.com.seudominio.foodrescue.business.event.ProductStockDepletedEvent;
 import br.com.seudominio.foodrescue.business.validation.validators.ProductBusinessValidator;
 import br.com.seudominio.foodrescue.core.percentage.Percentage;
 import br.com.seudominio.foodrescue.core.time.TimeProvider;
@@ -38,6 +40,7 @@ public class ProductService extends GenericService<Product, ProductDTO> {
     private final ProductMapper productMapper;
     private final ProductBusinessValidator productValidator;
     private final TimeProvider timeProvider;
+    private final DomainEventPublisher eventPublisher;
 
     /**
      * Constructor.
@@ -49,6 +52,7 @@ public class ProductService extends GenericService<Product, ProductDTO> {
      * @param messageUtils              the message utils
      * @param productValidator          the business validator for the entity
      * @param timeProvider              the current date and time provider
+     * @param eventPublisher            the domain event publisher, used to announce a depleted stock
      */
     public ProductService(
             ProductRepository repository,
@@ -57,13 +61,15 @@ public class ProductService extends GenericService<Product, ProductDTO> {
             Validator validator,
             MessageUtils messageUtils,
             ProductBusinessValidator productValidator,
-            TimeProvider timeProvider) {
+            TimeProvider timeProvider,
+            DomainEventPublisher eventPublisher) {
         super(repository, mapper, validator, messageUtils);
         this.productRepository = repository;
         this.establishmentRepository = establishmentRepository;
         this.productMapper = mapper;
         this.productValidator = productValidator;
         this.timeProvider = timeProvider;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -143,6 +149,8 @@ public class ProductService extends GenericService<Product, ProductDTO> {
         boolean expirationDateInPast = checkExpirationWarning(product);
 
         Product saved = productRepository.saveAndFlush(product);
+        announceIfDepleted(saved);
+
         return new ProductInventoryUpdateDTO(productMapper.toDto(saved), expirationDateInPast);
     }
 
@@ -182,7 +190,10 @@ public class ProductService extends GenericService<Product, ProductDTO> {
         }
 
         product.setStockQuantity(product.getStockQuantity() - quantity);
-        return productRepository.save(product);
+        Product saved = productRepository.save(product);
+        announceIfDepleted(saved);
+
+        return saved;
     }
 
     /**
@@ -203,6 +214,20 @@ public class ProductService extends GenericService<Product, ProductDTO> {
 
         product.setCurrentPrice(product.getOriginalPrice().applyDiscount(percentage));
         return productRepository.save(product);
+    }
+
+    /**
+     * Announces that the product ran out of stock, so whoever cares can react
+     * (UC08 closes its open offers). Publishing instead of calling keeps this
+     * service unaware that offers exist.
+     *
+     * @param product the product just saved
+     */
+    private void announceIfDepleted(Product product) {
+        if (product.getStockQuantity() <= 0) {
+            eventPublisher.publish(new ProductStockDepletedEvent(
+                    product.getId(), product.getEstablishment().getId()));
+        }
     }
 
     private void validateInventoryRequest(UpdateProductInventoryRequest request) {

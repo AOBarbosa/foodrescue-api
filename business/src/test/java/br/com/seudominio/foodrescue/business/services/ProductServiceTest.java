@@ -8,6 +8,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import br.com.seudominio.foodrescue.business.event.DomainEventPublisher;
+import br.com.seudominio.foodrescue.business.event.ProductStockDepletedEvent;
 import br.com.seudominio.foodrescue.business.validation.validators.ProductBusinessValidator;
 import br.com.seudominio.foodrescue.core.time.TimeProvider;
 import br.com.seudominio.foodrescue.core.utils.MessageUtils;
@@ -43,6 +45,7 @@ class ProductServiceTest {
     private ProductRepository productRepository;
     private EstablishmentRepository establishmentRepository;
     private TimeProvider timeProvider;
+    private DomainEventPublisher eventPublisher;
     private ProductService productService;
 
     @BeforeEach
@@ -50,6 +53,7 @@ class ProductServiceTest {
         productRepository = mock(ProductRepository.class);
         establishmentRepository = mock(EstablishmentRepository.class);
         timeProvider = mock(TimeProvider.class);
+        eventPublisher = mock(DomainEventPublisher.class);
         when(timeProvider.now()).thenReturn(NOW);
 
         ProductMapper productMapper = new ProductMapper();
@@ -62,7 +66,7 @@ class ProductServiceTest {
 
         productService = new ProductService(
                 productRepository, establishmentRepository, productMapper,
-                beanValidator, messageUtils, productValidator, timeProvider);
+                beanValidator, messageUtils, productValidator, timeProvider, eventPublisher);
     }
 
     private RegisterProductDTO registerDto(BigDecimal originalPrice) {
@@ -84,6 +88,12 @@ class ProductServiceTest {
         product.setOriginalPrice(br.com.seudominio.foodrescue.core.money.Money.of(new BigDecimal("12.50")));
         product.setCurrentPrice(br.com.seudominio.foodrescue.core.money.Money.of(new BigDecimal("12.50")));
         product.setEstablishment(owner);
+        return product;
+    }
+
+    private Product product(Long id, Establishment owner, int stockQuantity) {
+        Product product = product(id, owner);
+        product.setStockQuantity(stockQuantity);
         return product;
     }
 
@@ -372,5 +382,43 @@ class ProductServiceTest {
         Product found = productService.findProductOwnedBy(10L, 1L);
 
         assertThat(found).isSameAs(product);
+    }
+
+    // ---------- UC08: anuncio de estoque esgotado ----------
+
+    @Test
+    void deductStockAnnouncesWhenTheStockReachesZero() {
+        Establishment owner = establishment(1L, "Padaria");
+        Product product = product(10L, owner, 4);
+        when(productRepository.findById(10L)).thenReturn(Optional.of(product));
+        when(productRepository.save(any(Product.class))).thenAnswer(i -> i.getArgument(0));
+
+        productService.deductStock(10L, 1L, 4);
+
+        verify(eventPublisher).publish(new ProductStockDepletedEvent(10L, 1L));
+    }
+
+    @Test
+    void deductStockDoesNotAnnounceWhileStockRemains() {
+        Establishment owner = establishment(1L, "Padaria");
+        Product product = product(10L, owner, 10);
+        when(productRepository.findById(10L)).thenReturn(Optional.of(product));
+        when(productRepository.save(any(Product.class))).thenAnswer(i -> i.getArgument(0));
+
+        productService.deductStock(10L, 1L, 4);
+
+        verify(eventPublisher, never()).publish(any());
+    }
+
+    @Test
+    void updateInventoryAnnouncesWhenTheStockIsSetToZero() {
+        Establishment owner = establishment(1L, "Padaria");
+        Product product = product(10L, owner, 10);
+        when(productRepository.findById(10L)).thenReturn(Optional.of(product));
+        when(productRepository.saveAndFlush(any(Product.class))).thenAnswer(i -> i.getArgument(0));
+
+        productService.updateInventory(10L, 1L, new UpdateProductInventoryRequest(0, null));
+
+        verify(eventPublisher).publish(new ProductStockDepletedEvent(10L, 1L));
     }
 }
