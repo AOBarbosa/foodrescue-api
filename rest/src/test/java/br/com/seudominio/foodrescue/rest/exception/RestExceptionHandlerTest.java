@@ -8,6 +8,7 @@ import br.com.seudominio.foodrescue.business.helpers.MessageCode;
 import br.com.seudominio.foodrescue.core.validation.ValidationError;
 import br.com.seudominio.foodrescue.core.validation.exception.ValidationException;
 import br.com.seudominio.foodrescue.domain.entities.Consumer;
+import br.com.seudominio.foodrescue.domain.entities.Offer;
 import br.com.seudominio.foodrescue.domain.exception.BusinessRuleViolationException;
 import br.com.seudominio.foodrescue.domain.exception.DuplicateEntityException;
 import br.com.seudominio.foodrescue.domain.exception.EntityNotFoundException;
@@ -19,6 +20,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 import java.util.List;
 
@@ -49,6 +51,15 @@ class RestExceptionHandlerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         assertThat(response.getBody().code()).isEqualTo(MessageCode.DUPLICATE_ENTITY);
+    }
+
+    @Test
+    void mapsOptimisticLockingFailureTo409() {
+        ResponseEntity<ApiResponse<Object>> response = handler.handleOptimisticLockingFailure(
+                new ObjectOptimisticLockingFailureException(Offer.class, 700L), anyRequest());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(response.getBody().code()).isEqualTo(MessageCode.OPTIMISTIC_LOCK_CONFLICT);
     }
 
     @Test
