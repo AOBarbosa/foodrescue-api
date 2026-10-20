@@ -5,8 +5,11 @@ import br.com.seudominio.foodrescue.domain.enums.RecommendationStatus;
 
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -69,4 +72,30 @@ public interface AiRecommendationRepository extends GenericRepository<AiRecommen
             @Param("establishmentId") Long establishmentId,
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end);
+
+    /**
+     * Finds the latest recommendation of every product that has already been
+     * answered or has expired since a given moment, i.e. the tail of each
+     * product's chain of the day, ready to be followed by a new one (UC10).
+     *
+     * @param since the start of the period considered (usually the start of the day)
+     * @return the tail recommendations that are no longer pending
+     */
+    @Query("SELECT r FROM AiRecommendation r WHERE r.active = true AND r.product.active = true "
+            + "AND r.status <> br.com.seudominio.foodrescue.domain.enums.RecommendationStatus.PENDING "
+            + "AND r.creationDate >= :since "
+            + "AND NOT EXISTS (SELECT 1 FROM AiRecommendation n WHERE n.active = true "
+            + "AND n.product.id = r.product.id AND n.creationDate > r.creationDate)")
+    List<AiRecommendation> findChainTailsSince(@Param("since") LocalDateTime since);
+
+    /**
+     * Finds the recommendations of a product made since a given moment,
+     * oldest first, so the chain can be read in order (UC10).
+     *
+     * @param productId the product id
+     * @param since     the start of the period considered
+     * @return the product's recommendations in chronological order
+     */
+    List<AiRecommendation> findByProductIdAndCreationDateGreaterThanEqualAndActiveTrueOrderByCreationDateAsc(
+            Long productId, LocalDateTime since);
 }

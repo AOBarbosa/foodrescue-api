@@ -4,12 +4,14 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.persistence.autoconfigure.EntityScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.util.Locale;
 
 @SpringBootApplication(scanBasePackages = "br.com.seudominio.foodrescue")
 @EntityScan("br.com.seudominio.foodrescue.domain.entities")
 @EnableJpaRepositories("br.com.seudominio.foodrescue.persistence.repositories")
+@EnableScheduling
 public class FoodRescueApiApplication {
 
     public static void main(String[] args) {

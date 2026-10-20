@@ -83,6 +83,26 @@ public class DiscountRecommendationController {
     }
 
     /**
+     * Lists today's chain of recommendations for a product, oldest first, from
+     * the initial recommendation to each new one that followed it (UC10).
+     *
+     * @param productId the product id
+     * @param principal the authenticated principal
+     * @return the product's chain of recommendations
+     */
+    @PreAuthorize("hasRole('ROLE_ESTABLISHMENT')")
+    @Operation(summary = "List today's chain of recommendations of a product")
+    @GetMapping("/products/{productId}/recommendation-chain")
+    public ResponseEntity<ApiResponse<List<DiscountRecommendationDTO>>> chain(
+            @PathVariable Long productId,
+            @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        return ResponseEntity.ok(new ApiResponse<>(
+                aiRecommendationService.findChainForProduct(productId, principal.id()),
+                "Recommendation chain retrieved successfully",
+                true,
+                null));
+    }
+    /**
      * Lists the authenticated establishment's recommendations still waiting for
      * an answer, oldest first.
      *

@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 
 import br.com.seudominio.foodrescue.business.event.DiscountRecommendationRespondedEvent;
 import br.com.seudominio.foodrescue.business.event.DomainEventPublisher;
+import br.com.seudominio.foodrescue.business.strategy.DiscountThenPriorityStrategy;
 import br.com.seudominio.foodrescue.business.strategy.RiskWeightedDiscountStrategy;
 import br.com.seudominio.foodrescue.core.money.Money;
 import br.com.seudominio.foodrescue.core.percentage.Percentage;
@@ -75,7 +76,8 @@ class AiRecommendationServiceTest {
         service = new AiRecommendationService(
                 recommendationRepository, new AiRecommendationMapper(), mock(Validator.class),
                 mock(MessageUtils.class), productService, wasteRiskService,
-                new RiskWeightedDiscountStrategy(0.6, 15, 4, 60), eventPublisher, timeProvider, "22:00", 24);
+                new RiskWeightedDiscountStrategy(0.6, 15, 4, 60), eventPublisher, timeProvider, "22:00", 24,
+                new DiscountThenPriorityStrategy(10, 60), 3, 60);
 
         establishment = new Establishment();
         establishment.setId(1L);
