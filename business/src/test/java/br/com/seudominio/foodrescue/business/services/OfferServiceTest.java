@@ -260,6 +260,26 @@ class OfferServiceTest {
     }
 
     @Test
+    void decreaseQuantityRejectsAnExpiredOffer() {
+        Offer offer = activeOffer(700L, 5);
+        offer.setExpiresAt(NOW.minusMinutes(1));
+        when(offerRepository.findById(700L)).thenReturn(Optional.of(offer));
+
+        assertThatThrownBy(() -> service.decreaseQuantity(700L, 1))
+                .isInstanceOf(BusinessRuleViolationException.class)
+                .hasMessageContaining("has expired");
+        assertThat(offer.getAvailableQuantity()).isEqualTo(5);
+    }
+
+    @Test
+    void decreaseQuantityRejectsANonExistentOffer() {
+        when(offerRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.decreaseQuantity(999L, 1))
+                .isInstanceOf(EntityNotFoundException.class);
+    }
+
+    @Test
     void closeOffersForDepletedProductClosesEveryOpenOffer() {
         Offer first = activeOffer(700L, 5);
         Offer second = activeOffer(701L, 3);
