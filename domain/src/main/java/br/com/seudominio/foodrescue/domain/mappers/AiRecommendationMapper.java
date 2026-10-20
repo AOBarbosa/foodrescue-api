@@ -41,6 +41,7 @@ public class AiRecommendationMapper implements DTOMapper<AiRecommendation, Disco
                         : Percentage.of(dto.suggestedPercentage()))
                 .status(dto.status())
                 .respondedAt(dto.respondedAt())
+                .previousRecommendationId(dto.previousRecommendationId())
                 .build();
     }
 
@@ -88,6 +89,7 @@ public class AiRecommendationMapper implements DTOMapper<AiRecommendation, Disco
                         : originalPrice.applyDiscount(percentage).amount(),
                 recommendation.getCreationDate(),
                 expiresAt,
-                recommendation.getRespondedAt());
+                recommendation.getRespondedAt(),
+                recommendation.getPreviousRecommendationId());
     }
 }

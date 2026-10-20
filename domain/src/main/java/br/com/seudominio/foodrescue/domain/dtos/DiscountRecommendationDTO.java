@@ -22,6 +22,7 @@ import java.time.LocalDateTime;
  * @param createdAt            the moment the recommendation was generated
  * @param expiresAt            the moment it stops accepting an answer, or {@code null} if unknown
  * @param respondedAt          the moment the establishment answered, or {@code null} while pending
+ * @param previousRecommendationId the recommendation this one follows, or {@code null} for the first of a chain (UC10)
  *
  * @author Hugo Jose
  * @since 1.0.0
@@ -38,5 +39,6 @@ public record DiscountRecommendationDTO(
         BigDecimal priceWithDiscount,
         LocalDateTime createdAt,
         LocalDateTime expiresAt,
-        LocalDateTime respondedAt) {
+        LocalDateTime respondedAt,
+        Long previousRecommendationId) {
 }

@@ -40,7 +40,7 @@ class DiscountRecommendationControllerTest {
         return new DiscountRecommendationDTO(
                 500L, 10L, "Pao frances", RecommendationType.DISCOUNT, new BigDecimal("40.00"), status,
                 new BigDecimal("10.00"), new BigDecimal("6.00"), new BigDecimal("6.00"),
-                LocalDateTime.of(2026, 9, 14, 15, 0), LocalDateTime.of(2026, 9, 15, 15, 0), null);
+                LocalDateTime.of(2026, 9, 14, 15, 0), LocalDateTime.of(2026, 9, 15, 15, 0), null, null);
     }
 
     @Test
