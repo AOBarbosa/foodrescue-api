@@ -159,6 +159,12 @@ public class Offer extends AbstractEntity {
         this.status = status;
     }
 
+    /**
+     * Marks the offer as priority/featured for consumers (UC11).
+     */
+    public void markAsPriority() {
+        this.priority = true;
+    }
     public boolean isPriority() {
         return priority;
     }

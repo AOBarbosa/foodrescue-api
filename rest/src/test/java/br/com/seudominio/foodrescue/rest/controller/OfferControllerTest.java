@@ -114,4 +114,18 @@ class OfferControllerTest {
         assertThat(controller.available().getBody()).isNotNull();
         assertThat(consumer.role()).isEqualTo(UserRole.CONSUMER);
     }
+
+    @Test
+    void markAsPriorityUsesAuthenticatedEstablishment() {
+        OfferDTO prioritized = new OfferDTO(700L, 10L, "Pao de queijo", new BigDecimal("10.00"),
+                new BigDecimal("5.20"), 20, NOW.withHour(22), OfferStatus.ACTIVE, true, NOW);
+        when(offerService.markAsPriority(700L, 1L)).thenReturn(prioritized);
+
+        ResponseEntity<ApiResponse<OfferDTO>> response = controller.markAsPriority(700L, establishment);
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().data().priority()).isTrue();
+        assertThat(response.getBody().message()).contains("marked as priority");
+        verify(offerService).markAsPriority(700L, 1L);
+    }
 }

@@ -24,7 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import br.com.seudominio.foodrescue.business.ranking.OfferRankingPolicy;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Optional;
 
 /**
@@ -161,6 +163,56 @@ public class OfferService extends GenericService<Offer, OfferDTO> {
      * @throws EntityNotFoundException        if the offer does not exist or belongs to another establishment
      * @throws BusinessRuleViolationException if the offer is already closed
      */
+    /**
+     * Marks an offer as priority/featured for consumers (UC11).
+     *
+     * @param offerId         the offer id
+     * @param establishmentId the authenticated establishment id
+     * @return the updated offer
+     * @throws EntityNotFoundException        if the offer does not exist or belongs to another establishment
+     * @throws BusinessRuleViolationException if the offer is not active
+     */
+    public OfferDTO markAsPriority(Long offerId, Long establishmentId) {
+        Offer offer = findOwnedBy(offerId, establishmentId);
+
+        if (offer.getStatus() != OfferStatus.ACTIVE) {
+            throw new BusinessRuleViolationException(String.format(
+                    "offer %d is not active: current status is %s", offerId, offer.getStatus()));
+        }
+
+        offer.markAsPriority();
+        return toDto(offerRepository.save(offer));
+    }
+
+    /**
+     * Marks the active offer of a product as priority, or creates an active offer
+     * already flagged as priority if none exists (UC11).
+     *
+     * <p>Called automatically when a SURPLUS_DESTINATION recommendation is accepted.</p>
+     *
+     * @param productId       the product id
+     * @param establishmentId the establishment id
+     * @return the updated or created offer, or empty if no stock left
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public Optional<OfferDTO> markOrPublishPriorityOfferForProduct(Long productId, Long establishmentId) {
+        Product product = productService.findProductOwnedBy(productId, establishmentId);
+
+        if (product.getStockQuantity() <= 0) {
+            return Optional.empty();
+        }
+
+        Optional<Offer> existingActive = activeOfferOf(productId);
+        if (existingActive.isPresent()) {
+            Offer offer = existingActive.get();
+            offer.markAsPriority();
+            return Optional.of(toDto(offerRepository.save(offer)));
+        }
+
+        Offer newOffer = publish(product, product.getCurrentPrice(), null, null);
+        newOffer.markAsPriority();
+        return Optional.of(toDto(offerRepository.save(newOffer)));
+    }
     public OfferDTO closeOffer(Long id, Long establishmentId) {
         Offer offer = findOwnedBy(id, establishmentId);
 
@@ -262,8 +314,9 @@ public class OfferService extends GenericService<Offer, OfferDTO> {
      */
     @Transactional(readOnly = true)
     public List<OfferDTO> findOrderable() {
-        return offerRepository.findOrderable(timeProvider.now())
-                .stream()
+        List<Offer> offers = new ArrayList<>(offerRepository.findOrderable(timeProvider.now()));
+        offers.sort(new OfferRankingPolicy());
+        return offers.stream()
                 .map(this::toDto)
                 .toList();
     }

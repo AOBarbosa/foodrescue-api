@@ -1,6 +1,7 @@
 package br.com.seudominio.foodrescue.business.event;
 
 import br.com.seudominio.foodrescue.domain.enums.RecommendationStatus;
+import br.com.seudominio.foodrescue.domain.enums.RecommendationType;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -18,6 +19,7 @@ import java.time.LocalDateTime;
  * @param establishmentId   the establishment that answered
  * @param status            the resulting status
  * @param appliedPercentage the percentage actually applied, or {@code null} when refused
+ * @param recommendationType the kind of recommendation answered (DISCOUNT or SURPLUS_DESTINATION)
  * @param respondedAt       the moment of the answer
  *
  * @author Hugo Jose
@@ -29,5 +31,6 @@ public record DiscountRecommendationRespondedEvent(
         Long establishmentId,
         RecommendationStatus status,
         BigDecimal appliedPercentage,
+        RecommendationType recommendationType,
         LocalDateTime respondedAt) {
 }
