@@ -234,8 +234,8 @@ public class OfferService extends GenericService<Offer, OfferDTO> {
      * @param quantity how many units to take
      * @return the updated offer
      * @throws EntityNotFoundException        if the offer does not exist
-     * @throws BusinessRuleViolationException if the offer is not active, the quantity is not
-     *                                        positive, or there are not enough units left
+     * @throws BusinessRuleViolationException if the offer is not active, has expired, the quantity
+     *                                        is not positive, or there are not enough units left
      */
     public Offer decreaseQuantity(Long offerId, int quantity) {
         Offer offer = offerRepository.findById(offerId)
@@ -247,6 +247,10 @@ public class OfferService extends GenericService<Offer, OfferDTO> {
         if (offer.getStatus() != OfferStatus.ACTIVE) {
             throw new BusinessRuleViolationException(String.format(
                     "offer %d is not active: current status is %s", offerId, offer.getStatus()));
+        }
+        if (!offer.getExpiresAt().isAfter(timeProvider.now())) {
+            throw new BusinessRuleViolationException(String.format(
+                    "offer %d has expired at %s", offerId, offer.getExpiresAt()));
         }
         if (offer.getAvailableQuantity() < quantity) {
             throw new BusinessRuleViolationException(String.format(
