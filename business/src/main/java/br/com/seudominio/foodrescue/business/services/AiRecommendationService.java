@@ -223,6 +223,7 @@ public class AiRecommendationService extends GenericService<AiRecommendation, Di
                 establishmentId,
                 answered.getStatus(),
                 applied == null ? null : applied.value(),
+                answered.getType(),
                 now));
 
         return toDto(answered);

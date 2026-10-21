@@ -347,4 +347,73 @@ class OfferServiceTest {
         assertThat(service.findOrderable()).extracting(OfferDTO::id).containsExactly(700L);
         verify(offerRepository).findOrderable(NOW);
     }
+
+    // ---------- UC11 prioridade ----------
+
+    @Test
+    void markAsPriorityMarksAnActiveOfferAsPriority() {
+        Offer offer = activeOffer(700L, 5);
+        when(offerRepository.findById(700L)).thenReturn(Optional.of(offer));
+
+        OfferDTO result = service.markAsPriority(700L, 1L);
+
+        assertThat(result.priority()).isTrue();
+        assertThat(offer.isPriority()).isTrue();
+        verify(offerRepository).save(offer);
+    }
+
+    @Test
+    void markAsPriorityRejectsInactiveOffer() {
+        Offer offer = activeOffer(700L, 5);
+        offer.setStatus(OfferStatus.CLOSED);
+        when(offerRepository.findById(700L)).thenReturn(Optional.of(offer));
+
+        assertThatThrownBy(() -> service.markAsPriority(700L, 1L))
+                .isInstanceOf(BusinessRuleViolationException.class)
+                .hasMessageContaining("current status is CLOSED");
+    }
+
+    @Test
+    void markAsPriorityRejectsOfferFromAnotherEstablishment() {
+        Offer offer = activeOffer(700L, 5);
+        when(offerRepository.findById(700L)).thenReturn(Optional.of(offer));
+
+        assertThatThrownBy(() -> service.markAsPriority(700L, 2L))
+                .isInstanceOf(EntityNotFoundException.class);
+    }
+
+    @Test
+    void markOrPublishPriorityOfferPrioritizesExistingActiveOffer() {
+        Offer existing = activeOffer(700L, 5);
+        when(offerRepository.findFirstByProductIdAndStatusAndActiveTrueOrderByCreationDateDesc(10L, OfferStatus.ACTIVE))
+                .thenReturn(Optional.of(existing));
+
+        Optional<OfferDTO> result = service.markOrPublishPriorityOfferForProduct(10L, 1L);
+
+        assertThat(result).isPresent();
+        assertThat(result.get().priority()).isTrue();
+        assertThat(existing.isPriority()).isTrue();
+        verify(offerRepository).save(existing);
+    }
+
+    @Test
+    void markOrPublishPriorityOfferPublishesNewPriorityOfferWhenNoneExists() {
+        when(offerRepository.findFirstByProductIdAndStatusAndActiveTrueOrderByCreationDateDesc(10L, OfferStatus.ACTIVE))
+                .thenReturn(Optional.empty());
+
+        Optional<OfferDTO> result = service.markOrPublishPriorityOfferForProduct(10L, 1L);
+
+        assertThat(result).isPresent();
+        assertThat(result.get().priority()).isTrue();
+    }
+
+    @Test
+    void markOrPublishPriorityOfferReturnsEmptyWhenStockIsZero() {
+        product.setStockQuantity(0);
+
+        Optional<OfferDTO> result = service.markOrPublishPriorityOfferForProduct(10L, 1L);
+
+        assertThat(result).isEmpty();
+        verify(offerRepository, never()).save(any(Offer.class));
+    }
 }

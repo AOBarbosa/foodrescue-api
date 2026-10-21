@@ -292,6 +292,7 @@ class AiRecommendationServiceTest {
         assertThat(event.establishmentId()).isEqualTo(1L);
         assertThat(event.status()).isEqualTo(RecommendationStatus.ACCEPTED);
         assertThat(event.appliedPercentage()).isEqualByComparingTo("40.00");
+        assertThat(event.recommendationType()).isEqualTo(RecommendationType.DISCOUNT);
         assertThat(event.respondedAt()).isEqualTo(NOW);
     }
 

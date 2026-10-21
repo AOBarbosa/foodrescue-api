@@ -118,6 +118,25 @@ public class OfferController {
     }
 
     /**
+     * Marks an active offer as priority/featured (UC11).
+     *
+     * @param id        the offer id
+     * @param principal the authenticated principal
+     * @return the prioritized offer
+     */
+    @PreAuthorize("hasRole('ROLE_ESTABLISHMENT')")
+    @Operation(summary = "Mark an offer as priority/featured")
+    @PatchMapping("/{id}/priority")
+    public ResponseEntity<ApiResponse<OfferDTO>> markAsPriority(
+            @PathVariable Long id,
+            @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        return ResponseEntity.ok(new ApiResponse<>(
+                offerService.markAsPriority(id, principal.id()),
+                "Offer marked as priority successfully",
+                true,
+                null));
+    }
+    /**
      * Closes an offer before its deadline.
      *
      * @param id        the offer id

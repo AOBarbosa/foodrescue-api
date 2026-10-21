@@ -2,6 +2,7 @@ package br.com.seudominio.foodrescue.business.event;
 
 import br.com.seudominio.foodrescue.business.services.OfferService;
 import br.com.seudominio.foodrescue.domain.enums.RecommendationStatus;
+import br.com.seudominio.foodrescue.domain.enums.RecommendationType;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,18 +49,26 @@ public class DiscountAcceptedListener {
      */
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onDiscountRecommendationResponded(DiscountRecommendationRespondedEvent event) {
-        if (!priceWasChanged(event.status())) {
+        if (event.status() != RecommendationStatus.ACCEPTED && event.status() != RecommendationStatus.ADJUSTED) {
             return;
         }
 
         try {
-            offerService.createFromAcceptedDiscount(event.productId(), event.establishmentId())
-                    .ifPresentOrElse(
-                            offer -> log.info("Offer {} published for product {} after recommendation {} was {}",
-                                    offer.id(), event.productId(), event.recommendationId(), event.status()),
-                            () -> log.info("No offer published for product {}: no stock left", event.productId()));
+            if (event.recommendationType() == RecommendationType.SURPLUS_DESTINATION) {
+                offerService.markOrPublishPriorityOfferForProduct(event.productId(), event.establishmentId())
+                        .ifPresentOrElse(
+                                offer -> log.info("Offer {} marked as priority for product {} after recommendation {} was accepted",
+                                        offer.id(), event.productId(), event.recommendationId()),
+                                () -> log.info("No priority offer for product {}: no stock left", event.productId()));
+            } else {
+                offerService.createFromAcceptedDiscount(event.productId(), event.establishmentId())
+                        .ifPresentOrElse(
+                                offer -> log.info("Offer {} published for product {} after recommendation {} was {}",
+                                        offer.id(), event.productId(), event.recommendationId(), event.status()),
+                                () -> log.info("No offer published for product {}: no stock left", event.productId()));
+            }
         } catch (RuntimeException e) {
-            log.error("Failed to publish an offer for product {} after recommendation {} was {}",
+            log.error("Failed to process offer for product {} after recommendation {} was {}",
                     event.productId(), event.recommendationId(), event.status(), e);
         }
     }
