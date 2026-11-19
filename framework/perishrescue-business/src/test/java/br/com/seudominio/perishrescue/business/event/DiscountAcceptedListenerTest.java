@@ -116,4 +116,19 @@ class DiscountAcceptedListenerTest {
         verify(offerService, never()).markOrPublishPriorityOfferForResource(anyLong(), anyLong());
         verify(offerService, never()).createFromAcceptedDiscount(anyLong(), anyLong());
     }
+
+    @Test
+    void anAcceptedDonationTakesTheRemainingStockOffSaleInsteadOfPublishingAnOffer() {
+        br.com.seudominio.perishrescue.business.services.ResourceService resourceService =
+                mock(br.com.seudominio.perishrescue.business.services.ResourceService.class);
+        when(resourceService.donateRemainingStock(10L, 1L)).thenReturn(4);
+        DiscountAcceptedListener donating = new DiscountAcceptedListener(offerService, resourceService);
+
+        donating.onDiscountRecommendationResponded(new DiscountRecommendationRespondedEvent(
+                500L, 10L, 1L, RecommendationStatus.ACCEPTED, null, RecommendationType.DONATION, NOW));
+
+        verify(resourceService).donateRemainingStock(10L, 1L);
+        verify(offerService, never()).createFromAcceptedDiscount(anyLong(), anyLong());
+        verify(offerService, never()).markOrPublishPriorityOfferForResource(anyLong(), anyLong());
+    }
 }

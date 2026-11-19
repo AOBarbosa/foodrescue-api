@@ -58,4 +58,16 @@ class FoodItemTest {
         item.setAllergens(null);
         assertThat(item.getAllergens()).isEmpty();
     }
+
+    @Test
+    void theForecastOfAFoodItemRunsUntilItsOwnOffererClosesNotAFixedHour() {
+        FoodItem item = itemOfOffererClosingAt(LocalTime.of(18, 0));
+        var horizon = new br.com.seudominio.perishrescue.business.forecast.DeadlineForecastHorizon(
+                java.time.temporal.ChronoUnit.HOURS);
+
+        var window = horizon.windowFor(item, NOW);
+
+        assertThat(window.until()).isEqualTo(LocalDateTime.of(2026, 11, 18, 18, 0));
+        assertThat(window.remainingUnits()).isEqualTo(3);
+    }
 }

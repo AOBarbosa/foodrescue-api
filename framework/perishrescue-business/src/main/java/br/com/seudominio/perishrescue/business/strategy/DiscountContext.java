@@ -1,5 +1,6 @@
 package br.com.seudominio.perishrescue.business.strategy;
 
+import br.com.seudominio.perishrescue.business.forecast.ForecastWindow;
 import br.com.seudominio.perishrescue.core.percentage.Percentage;
 
 /**
@@ -8,8 +9,8 @@ import br.com.seudominio.perishrescue.core.percentage.Percentage;
  *
  * @param riskPercentage      the waste risk calculated by UC06
  * @param stockQuantity       the units currently in stock
- * @param expectedSurplus     the units expected to be left over at closing time
- * @param hoursUntilClosing   hours left until the end of the business day, negative once it has passed
+ * @param expectedSurplus     the units expected to be left over at the end of the window
+ * @param window              the forecast window (hot spot 4): how much time is left, in the instance's unit
  * @param daysUntilExpiration days left until the resource expires, or {@code null} if it has no expiration date
  *
  * @author Hugo Jose
@@ -19,6 +20,6 @@ public record DiscountContext(
         Percentage riskPercentage,
         int stockQuantity,
         int expectedSurplus,
-        long hoursUntilClosing,
+        ForecastWindow window,
         Long daysUntilExpiration) {
 }

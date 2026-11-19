@@ -7,7 +7,7 @@ import br.com.seudominio.perishrescue.core.percentage.Percentage;
  *
  * @param action     the alternative action recommended
  * @param percentage the new total discount for {@link SurplusAction#ADDITIONAL_DISCOUNT},
- *                   {@code null} for {@link SurplusAction#PRIORITIZE}
+ *                   {@code null} for {@link SurplusAction#PRIORITIZE} and {@link SurplusAction#DONATE}
  *
  * @author Clovis Medeiros
  * @since 1.0.0
@@ -31,5 +31,14 @@ public record SurplusDecision(SurplusAction action, Percentage percentage) {
      */
     public static SurplusDecision prioritize() {
         return new SurplusDecision(SurplusAction.PRIORITIZE, null);
+    }
+
+    /**
+     * Decision to take the remaining units off sale and donate them.
+     *
+     * @return the decision
+     */
+    public static SurplusDecision donate() {
+        return new SurplusDecision(SurplusAction.DONATE, null);
     }
 }

@@ -156,7 +156,7 @@
             ALTER TABLE reservations_aud ADD CONSTRAINT reservations_aud_status_check
                 CHECK (status IN ('RESERVED', 'RESCUED', 'EXPIRED', 'CANCELLED'));
             ALTER TABLE ai_recommendations_aud ADD CONSTRAINT ai_recommendations_aud_type_check
-                CHECK (type IN ('DISCOUNT', 'SURPLUS_DESTINATION'));
+                CHECK (type IN ('DISCOUNT', 'SURPLUS_DESTINATION', 'DONATION'));
             ALTER TABLE ai_recommendations_aud ADD CONSTRAINT ai_recommendations_aud_status_check
                 CHECK (status IN ('PENDING', 'ACCEPTED', 'ADJUSTED', 'REFUSED', 'EXPIRED'));
         </sql>

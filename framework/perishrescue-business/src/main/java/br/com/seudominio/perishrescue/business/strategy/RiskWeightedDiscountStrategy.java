@@ -18,8 +18,8 @@ import java.math.RoundingMode;
  * </pre>
  *
  * <p>The three inputs the use case must weigh are covered as follows: the
- * <em>risk</em> drives the base discount, the <em>remaining time</em> (until
- * closing or expiration) drives the urgency bonus, and the <em>stock</em>
+ * <em>risk</em> drives the base discount, the <em>remaining time</em> (of the forecast
+ * window, in the instance's unit, or until expiration) drives the urgency bonus, and the <em>stock</em>
  * enters as a gate &mdash; a resource with no expected surplus gets no discount
  * at all, regardless of its risk.</p>
  *
@@ -33,7 +33,7 @@ public class RiskWeightedDiscountStrategy implements DiscountRecommendationStrat
 
     private final BigDecimal riskFactor;
     private final BigDecimal urgencyBonus;
-    private final long urgentHours;
+    private final long urgentRemaining;
     private final BigDecimal maxDiscount;
 
     /**
@@ -41,17 +41,18 @@ public class RiskWeightedDiscountStrategy implements DiscountRecommendationStrat
      *
      * @param riskFactor   fraction of the risk that becomes discount (e.g. {@code 0.6} turns 80% risk into 48%)
      * @param urgencyBonus percentage points added when the resource is running out of time
-     * @param urgentHours  how many hours before closing the resource is considered urgent
+     * @param urgentRemaining how much time left, in the forecast window's unit (hours for FoodRescue),
+     *                        makes the resource urgent
      * @param maxDiscount  ceiling for any suggestion, so the formula can never give the resource away
      */
     public RiskWeightedDiscountStrategy(
             @Value("${app.discount.risk-factor:0.6}") double riskFactor,
             @Value("${app.discount.urgency-bonus:15}") double urgencyBonus,
-            @Value("${app.discount.urgent-hours:4}") long urgentHours,
+            @Value("${app.discount.urgent-remaining:${app.discount.urgent-hours:4}}") long urgentRemaining,
             @Value("${app.discount.max-percentage:60}") double maxDiscount) {
         this.riskFactor = BigDecimal.valueOf(riskFactor);
         this.urgencyBonus = BigDecimal.valueOf(urgencyBonus);
-        this.urgentHours = urgentHours;
+        this.urgentRemaining = urgentRemaining;
         this.maxDiscount = Percentage.of(maxDiscount).value();
     }
 
@@ -79,7 +80,7 @@ public class RiskWeightedDiscountStrategy implements DiscountRecommendationStrat
     }
 
     private boolean isUrgent(DiscountContext context) {
-        return context.hoursUntilClosing() <= urgentHours
+        return context.window().isWithin(urgentRemaining)
                 || (context.daysUntilExpiration() != null && context.daysUntilExpiration() <= 1);
     }
 }

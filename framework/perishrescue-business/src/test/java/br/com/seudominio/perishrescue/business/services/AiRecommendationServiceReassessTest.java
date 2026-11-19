@@ -63,7 +63,7 @@ class AiRecommendationServiceReassessTest {
                 recommendationRepository, new AiRecommendationMapper(), mock(Validator.class),
                 mock(MessageUtils.class), mock(ResourceService.class), wasteRiskService,
                 new RiskWeightedDiscountStrategy(0.6, 15, 4, 60), mock(DomainEventPublisher.class),
-                timeProvider, "22:00", 24, new DiscountThenPriorityStrategy(10, 60), 3, 60);
+                timeProvider, (resource, at) -> new br.com.seudominio.perishrescue.business.forecast.ForecastWindow(at, at.toLocalDate().atTime(22, 0), java.time.temporal.ChronoUnit.HOURS), 24, new DiscountThenPriorityStrategy(10, 60), 3, 60);
 
         Offerer offerer = new Offerer();
         offerer.setId(1L);
@@ -140,7 +140,8 @@ class AiRecommendationServiceReassessTest {
         when(timeProvider.now()).thenReturn(NOW.withHour(15));
 
         assertThat(service.reassessSurplusDestination()).isEmpty();
-        verify(recommendationRepository, never()).findChainTailsSince(any());
+        verify(wasteRiskService, never()).assess(any(), any());
+        verify(recommendationRepository, never()).save(any(AiRecommendation.class));
     }
 
     @Test
@@ -172,7 +173,7 @@ class AiRecommendationServiceReassessTest {
                 recommendationRepository, new AiRecommendationMapper(), mock(Validator.class),
                 mock(MessageUtils.class), resourceService, wasteRiskService,
                 new RiskWeightedDiscountStrategy(0.6, 15, 4, 60), mock(DomainEventPublisher.class),
-                timeProvider, "22:00", 24, new DiscountThenPriorityStrategy(10, 60), 3, 60);
+                timeProvider, (resource, at) -> new br.com.seudominio.perishrescue.business.forecast.ForecastWindow(at, at.toLocalDate().atTime(22, 0), java.time.temporal.ChronoUnit.HOURS), 24, new DiscountThenPriorityStrategy(10, 60), 3, 60);
 
         List<DiscountRecommendationDTO> chain = local.findChainForResource(10L, 1L);
 

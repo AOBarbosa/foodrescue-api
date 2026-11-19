@@ -6,6 +6,7 @@ import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -22,17 +23,24 @@ public class OpenApiConfig {
     private static final String BEARER_AUTH = "bearerAuth";
 
     /**
-     * Builds the application's {@link OpenAPI} definition.
+     * Builds the application's {@link OpenAPI} definition. Title and
+     * description belong to the instance ({@code perishrescue.api.title},
+     * {@code perishrescue.api.description}).
      *
+     * @param title       the API title shown in Swagger UI
+     * @param description the API description shown in Swagger UI
      * @return the OpenAPI definition
      */
     @Bean
-    public OpenAPI customOpenAPI() {
+    public OpenAPI customOpenAPI(
+            @Value("${perishrescue.api.title:PerishRescue API}") String title,
+            @Value("${perishrescue.api.description:REST API for rescuing perishable resources: offerers publish surplus that beneficiaries reserve and pick up.}")
+            String description) {
         return new OpenAPI()
                 .info(new Info()
-                        .title("FoodRescue AI API")
+                        .title(title)
                         .version("0.1.0")
-                        .description("REST API for reducing food waste by connecting offerers' surplus to beneficiaries."))
+                        .description(description))
                 .addSecurityItem(new SecurityRequirement().addList(BEARER_AUTH))
                 .components(new Components()
                         .addSecuritySchemes(BEARER_AUTH, new SecurityScheme()

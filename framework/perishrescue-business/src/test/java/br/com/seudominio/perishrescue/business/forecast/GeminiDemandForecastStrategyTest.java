@@ -39,7 +39,7 @@ class GeminiDemandForecastStrategyTest {
         geminiClient = mock(GeminiClient.class);
         when(geminiClient.isConfigured()).thenReturn(true);
         when(geminiClient.getModel()).thenReturn("gemini-test");
-        strategy = new GeminiDemandForecastStrategy(geminiClient, new WeekdayHourlyAverageForecastStrategy());
+        strategy = new GeminiDemandForecastStrategy(geminiClient, new HistoricalAverageForecastStrategy());
     }
 
     private ForecastContext context(int stock, LocalDateTime now) {
@@ -57,7 +57,7 @@ class GeminiDemandForecastStrategyTest {
                 .salesHistory(history)
                 .currentStock(stock)
                 .now(now)
-                .closingAt(CLOSING_AT)
+                .until(CLOSING_AT)
                 .build();
     }
 
@@ -108,7 +108,7 @@ class GeminiDemandForecastStrategyTest {
 
         ForecastResult result = strategy.forecast(context(30, NOW));
 
-        assertThat(result.source()).isEqualTo(WeekdayHourlyAverageForecastStrategy.SOURCE);
+        assertThat(result.source()).isEqualTo(HistoricalAverageForecastStrategy.SOURCE);
         assertThat(result.predictedQuantity()).isEqualTo(5);
     }
 
@@ -117,7 +117,7 @@ class GeminiDemandForecastStrategyTest {
         answer("{\"predictedQuantity\": 5, \"confidence\": \"SURE\", \"rationale\": \"ok\"}");
 
         assertThat(strategy.forecast(context(30, NOW)).source())
-                .isEqualTo(WeekdayHourlyAverageForecastStrategy.SOURCE);
+                .isEqualTo(HistoricalAverageForecastStrategy.SOURCE);
     }
 
     @Test
@@ -126,7 +126,7 @@ class GeminiDemandForecastStrategyTest {
 
         ForecastResult result = strategy.forecast(context(30, NOW));
 
-        assertThat(result.source()).isEqualTo(WeekdayHourlyAverageForecastStrategy.SOURCE);
+        assertThat(result.source()).isEqualTo(HistoricalAverageForecastStrategy.SOURCE);
         verify(geminiClient, never()).generateJson(any(), any());
     }
 
@@ -136,5 +136,29 @@ class GeminiDemandForecastStrategyTest {
 
         assertThat(result.predictedQuantity()).isZero();
         verify(geminiClient, never()).generateJson(any(), any());
+    }
+
+    @Test
+    void describesTheBusinessTheInstanceConfigured() throws Exception {
+        answer("{\"predictedQuantity\": 1, \"confidence\": \"LOW\", \"rationale\": \"ok\"}");
+        ForecastContext pharmacy = ForecastContext.builder()
+                .resourceName("Dipirona 500mg")
+                .resourceCategory("analgesico")
+                .salesHistory(context(30, NOW).salesHistory())
+                .currentStock(30)
+                .now(NOW)
+                .until(NOW.plusDays(60))
+                .granularity(java.time.temporal.ChronoUnit.DAYS)
+                .businessDescription("uma drogaria de bairro")
+                .build();
+
+        strategy.forecast(pharmacy);
+
+        ArgumentCaptor<String> prompt = ArgumentCaptor.forClass(String.class);
+        verify(geminiClient).generateJson(prompt.capture(), anyMap());
+        assertThat(prompt.getValue())
+                .contains("uma drogaria de bairro")
+                .contains("60 dias")
+                .doesNotContain("alimentos");
     }
 }

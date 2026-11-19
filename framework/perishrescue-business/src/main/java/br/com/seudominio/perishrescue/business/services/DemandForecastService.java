@@ -3,6 +3,8 @@ package br.com.seudominio.perishrescue.business.services;
 import br.com.seudominio.perishrescue.business.forecast.DemandForecastStrategy;
 import br.com.seudominio.perishrescue.business.forecast.ForecastContext;
 import br.com.seudominio.perishrescue.business.forecast.ForecastEligibilityChecker;
+import br.com.seudominio.perishrescue.business.forecast.ForecastHorizon;
+import br.com.seudominio.perishrescue.business.forecast.ForecastWindow;
 import br.com.seudominio.perishrescue.business.forecast.ForecastResult;
 import br.com.seudominio.perishrescue.core.time.TimeProvider;
 import br.com.seudominio.perishrescue.core.utils.MessageUtils;
@@ -22,7 +24,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.List;
 
 /**
@@ -31,7 +32,9 @@ import java.util.List;
  * <p>Collecting the sales history ({@link SaleRepository}), calculating the
  * forecast ({@link DemandForecastStrategy}) and persisting the result
  * ({@link DemandForecastRepository}) are kept in separate collaborators; this
- * service only orchestrates them.</p>
+ * service only orchestrates them. The period forecast comes from the
+ * instance's {@link ForecastHorizon} (hot spot 4): for FoodRescue, until the
+ * offerer closes today; for PharmaRescue, until the batch expires.</p>
  *
  * @author Andre Barbosa
  * @since 1.0.0
@@ -47,7 +50,8 @@ public class DemandForecastService extends GenericService<DemandForecast, Demand
     private final DemandForecastStrategy forecastStrategy;
     private final ForecastEligibilityChecker eligibilityChecker;
     private final TimeProvider timeProvider;
-    private final LocalTime closingTime;
+    private final ForecastHorizon forecastHorizon;
+    private final String businessDescription;
     private final int lookbackWeeks;
 
     /**
@@ -62,7 +66,8 @@ public class DemandForecastService extends GenericService<DemandForecast, Demand
      * @param forecastStrategy    the forecasting algorithm
      * @param eligibilityChecker  the minimum-history rule
      * @param timeProvider        the current date and time provider
-     * @param closingTime         the end of the business day (ISO time, e.g. {@code 22:00})
+     * @param forecastHorizon     the instance's forecast horizon (hot spot 4)
+     * @param businessDescription how the instance describes its business to an AI model
      * @param lookbackWeeks       how many weeks of sales history are considered
      */
     public DemandForecastService(
@@ -75,7 +80,9 @@ public class DemandForecastService extends GenericService<DemandForecast, Demand
             DemandForecastStrategy forecastStrategy,
             ForecastEligibilityChecker eligibilityChecker,
             TimeProvider timeProvider,
-            @Value("${app.forecast.closing-time:22:00}") String closingTime,
+            ForecastHorizon forecastHorizon,
+            @Value("${perishrescue.forecast.business-description:um estabelecimento que vende itens perecíveis}")
+            String businessDescription,
             @Value("${app.forecast.lookback-weeks:4}") int lookbackWeeks) {
         super(repository, mapper, validator, messageUtils);
         this.forecastRepository = repository;
@@ -85,13 +92,14 @@ public class DemandForecastService extends GenericService<DemandForecast, Demand
         this.forecastStrategy = forecastStrategy;
         this.eligibilityChecker = eligibilityChecker;
         this.timeProvider = timeProvider;
-        this.closingTime = LocalTime.parse(closingTime);
+        this.forecastHorizon = forecastHorizon;
+        this.businessDescription = businessDescription;
         this.lookbackWeeks = lookbackWeeks;
     }
 
     /**
-     * Calculates and records the demand forecast of a resource until the end
-     * of the current business day.
+     * Calculates and records the demand forecast of a resource over the
+     * window its {@link ForecastHorizon} defines.
      *
      * @param resourceId       the resource id
      * @param offererId the authenticated offerer id
@@ -114,14 +122,14 @@ public class DemandForecastService extends GenericService<DemandForecast, Demand
                     salesHistory.size(), lookbackWeeks, eligibilityChecker.getMinimumSales()));
         }
 
-        LocalDateTime closingAt = now.toLocalDate().atTime(closingTime);
+        ForecastWindow window = forecastHorizon.windowFor(resource, now);
         ForecastContext context = ForecastContext.builder()
                 .resourceName(resource.getName())
                 .resourceCategory(resource.getCategory())
                 .salesHistory(salesHistory)
                 .currentStock(resource.getStockQuantity())
-                .now(now)
-                .closingAt(closingAt)
+                .window(window)
+                .businessDescription(businessDescription)
                 .build();
         ForecastResult result = forecastStrategy.forecast(context);
 
@@ -134,7 +142,7 @@ public class DemandForecastService extends GenericService<DemandForecast, Demand
                 .source(result.source())
                 .rationale(result.rationale())
                 .calculatedAt(now)
-                .forecastUntil(closingAt)
+                .forecastUntil(window.until())
                 .build();
 
         return forecastMapper.toDto(forecastRepository.save(forecast));

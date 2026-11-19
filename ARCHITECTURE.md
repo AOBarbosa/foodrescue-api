@@ -101,12 +101,13 @@ pickup code and `pickupDeadline = min(now + pickup tolerance, offer deadline)`
 transition publishes `OfferStatusChangedEvent` / `ReservationStatusChangedEvent`:
 instances react to those events instead of changing the flow.
 
-### Hot spots 2 and 3, and how defaults are overridden
+### Hot spots 2, 3 and 4, and how defaults are overridden
 
 | Hot spot | Interface | Framework default | FoodRescue |
 |---|---|---|---|
 | 2. Pricing | `business.pricing.PricingPolicy` | `StepwiseDepreciationPolicy` from `perishrescue.pricing.reference/unit/steps` (no steps = no discount) | `FoodItemPricingPolicy`: 75% for surprise bags, else 30%/70% from 4h/1h before closing |
 | 3. Rescue rules | `business.rescue.RescueRule` (every bean is checked) | none; reusable `QuotaPerBeneficiaryRule`, `PickupWindowRule`, `MinimumLotRule` | `FoodRescueRulesConfiguration`: 3 units per CPF per day + pickup within business hours |
+| 4. Forecast horizon | `business.forecast.ForecastHorizon` (+ `DemandForecastStrategy`, `perishrescue.forecast.business-description`) | `DeadlineForecastHorizon`: from now until the resource's `criticalDeadline`, in `perishrescue.forecast.granularity` (`HOURS`) | the default: until each offerer's own closing time, in hours; the Gemini prompt describes a small food business |
 
 Kernel rules around pricing (`PriceCalculator`): the policy discount is capped
 at `perishrescue.pricing.max-discount` (default 90), the larger of the policy's
@@ -127,6 +128,10 @@ own bean.
 | `perishrescue.pricing.repricing-interval-ms` | `300000` | Repricing period |
 | `perishrescue.reservation.pickup-tolerance-minutes` | `120` | How long a reservation waits for pickup |
 | `perishrescue.lifecycle.check-interval-ms` | `60000` | Expiration check period |
+| `perishrescue.forecast.granularity` | `HOURS` | Unit of the forecast window (`HOURS` or `DAYS`) |
+| `perishrescue.forecast.business-description` | generic | How the business is described to the AI forecast |
+| `perishrescue.api.title` / `.description` | `PerishRescue API` | Swagger UI title and description |
+| `app.surplus.donate-when-exhausted` | `false` | Whether the surplus strategy may suggest a donation after a priority exposure |
 
 ### Liquibase
 

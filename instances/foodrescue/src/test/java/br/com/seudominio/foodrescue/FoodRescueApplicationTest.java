@@ -63,6 +63,8 @@ class FoodRescueApplicationTest {
     @Test
     void theInstanceHotSpotsReplaceTheFrameworkDefaults() {
         assertThat(context.getBean(PricingPolicy.class)).isInstanceOf(FoodItemPricingPolicy.class);
+        assertThat(context.getBean(br.com.seudominio.perishrescue.business.forecast.ForecastHorizon.class))
+                .isInstanceOf(br.com.seudominio.perishrescue.business.forecast.DeadlineForecastHorizon.class);
         assertThat(context.getBeansOfType(RescueRule.class).values())
                 .hasSize(2)
                 .hasAtLeastOneElementOfType(QuotaPerBeneficiaryRule.class)

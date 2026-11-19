@@ -1,5 +1,7 @@
 package br.com.seudominio.perishrescue.business.autoconfigure;
 
+import br.com.seudominio.perishrescue.business.forecast.DeadlineForecastHorizon;
+import br.com.seudominio.perishrescue.business.forecast.ForecastHorizon;
 import br.com.seudominio.perishrescue.business.pricing.PricingPolicy;
 import br.com.seudominio.perishrescue.business.pricing.StepwiseDepreciationPolicy;
 import br.com.seudominio.perishrescue.business.pricing.StepwiseDepreciationPolicy.TimeReference;
@@ -45,5 +47,19 @@ public class PerishRescueDefaultsAutoConfiguration {
             @Value("${perishrescue.pricing.unit:HOURS}") ChronoUnit unit,
             @Value("${perishrescue.pricing.steps:}") String steps) {
         return new StepwiseDepreciationPolicy(reference, unit, StepwiseDepreciationPolicy.parseSteps(steps));
+    }
+
+    /**
+     * Hot spot 4 default: forecast until the resource's critical deadline,
+     * counting time in {@code perishrescue.forecast.granularity}.
+     *
+     * @param granularity the unit the remaining time is counted in
+     * @return the default forecast horizon
+     */
+    @Bean
+    @ConditionalOnMissingBean(ForecastHorizon.class)
+    public ForecastHorizon deadlineForecastHorizon(
+            @Value("${perishrescue.forecast.granularity:HOURS}") ChronoUnit granularity) {
+        return new DeadlineForecastHorizon(granularity);
     }
 }

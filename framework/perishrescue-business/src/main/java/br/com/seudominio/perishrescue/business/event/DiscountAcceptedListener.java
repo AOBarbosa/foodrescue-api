@@ -1,11 +1,13 @@
 package br.com.seudominio.perishrescue.business.event;
 
 import br.com.seudominio.perishrescue.business.services.OfferService;
+import br.com.seudominio.perishrescue.business.services.ResourceService;
 import br.com.seudominio.perishrescue.domain.enums.RecommendationStatus;
 import br.com.seudominio.perishrescue.domain.enums.RecommendationType;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -27,14 +29,27 @@ public class DiscountAcceptedListener {
     private static final Logger log = LoggerFactory.getLogger(DiscountAcceptedListener.class);
 
     private final OfferService offerService;
+    private final ResourceService resourceService;
 
     /**
      * Constructor.
      *
+     * @param offerService    the offer service
+     * @param resourceService the resource service, which takes donated units off the stock
+     */
+    @Autowired
+    public DiscountAcceptedListener(OfferService offerService, ResourceService resourceService) {
+        this.offerService = offerService;
+        this.resourceService = resourceService;
+    }
+
+    /**
+     * Constructor for listeners that never handle donations.
+     *
      * @param offerService the offer service
      */
     public DiscountAcceptedListener(OfferService offerService) {
-        this.offerService = offerService;
+        this(offerService, null);
     }
 
     /**
@@ -54,7 +69,11 @@ public class DiscountAcceptedListener {
         }
 
         try {
-            if (event.recommendationType() == RecommendationType.SURPLUS_DESTINATION) {
+            if (event.recommendationType() == RecommendationType.DONATION) {
+                int donated = resourceService.donateRemainingStock(event.resourceId(), event.offererId());
+                log.info("{} unit(s) of resource {} taken off sale for donation after recommendation {} was accepted",
+                        donated, event.resourceId(), event.recommendationId());
+            } else if (event.recommendationType() == RecommendationType.SURPLUS_DESTINATION) {
                 offerService.markOrPublishPriorityOfferForResource(event.resourceId(), event.offererId())
                         .ifPresentOrElse(
                                 offer -> log.info("Offer {} marked as priority for resource {} after recommendation {} was accepted",

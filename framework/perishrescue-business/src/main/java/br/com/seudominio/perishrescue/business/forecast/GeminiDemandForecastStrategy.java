@@ -27,11 +27,15 @@ import java.util.TreeMap;
  * sales summary is sent to the model, which answers with the predicted
  * quantity, a confidence level and a short rationale.
  *
- * <p>The statistical {@link WeekdayHourlyAverageForecastStrategy} runs first:
+ * <p>The statistical {@link HistoricalAverageForecastStrategy} runs first:
  * its estimate is handed to the model as a reference and is returned as is
  * whenever Gemini is not configured, fails, times out or answers with
  * something unusable, so a forecast is always produced. The model's answer is
  * clamped to {@code [0, currentStock]}.</p>
+ *
+ * <p>The prompt is generic: the business is described by the instance
+ * ({@code perishrescue.forecast.business-description}) and the period comes
+ * from the instance's {@link ForecastWindow} (rest of today, or several days).</p>
  *
  * <p>Active when {@code app.forecast.provider=gemini}.</p>
  *
@@ -47,6 +51,9 @@ public class GeminiDemandForecastStrategy implements DemandForecastStrategy {
     private static final Locale PT_BR = Locale.forLanguageTag("pt-BR");
     private static final DateTimeFormatter HOUR = DateTimeFormatter.ofPattern("HH:mm");
     private static final int MAX_RATIONALE_LENGTH = 1000;
+    private static final String RULES = "Regras: predictedQuantity é um inteiro entre 0 e o estoque atual; "
+            + "confidence é LOW, MEDIUM ou HIGH conforme a quantidade e a consistência do histórico; "
+            + "rationale é uma frase curta em português explicando a estimativa.";
 
     private static final Map<String, Object> RESPONSE_SCHEMA = Map.of(
             "type", "OBJECT",
@@ -57,7 +64,7 @@ public class GeminiDemandForecastStrategy implements DemandForecastStrategy {
             "required", List.of("predictedQuantity", "confidence", "rationale"));
 
     private final GeminiClient geminiClient;
-    private final WeekdayHourlyAverageForecastStrategy fallback;
+    private final HistoricalAverageForecastStrategy fallback;
 
     /**
      * Constructor.
@@ -65,7 +72,7 @@ public class GeminiDemandForecastStrategy implements DemandForecastStrategy {
      * @param geminiClient the Gemini API client
      * @param fallback     the statistical strategy used as reference and fallback
      */
-    public GeminiDemandForecastStrategy(GeminiClient geminiClient, WeekdayHourlyAverageForecastStrategy fallback) {
+    public GeminiDemandForecastStrategy(GeminiClient geminiClient, HistoricalAverageForecastStrategy fallback) {
         this.geminiClient = geminiClient;
         this.fallback = fallback;
     }
@@ -73,7 +80,7 @@ public class GeminiDemandForecastStrategy implements DemandForecastStrategy {
     @Override
     public ForecastResult forecast(ForecastContext context) {
         ForecastResult baseline = fallback.forecast(context);
-        if (!geminiClient.isConfigured() || !context.now().isBefore(context.closingAt())) {
+        if (!geminiClient.isConfigured() || context.window().isOver()) {
             return baseline;
         }
 
@@ -82,7 +89,7 @@ public class GeminiDemandForecastStrategy implements DemandForecastStrategy {
             return toResult(answer, context, baseline);
         } catch (GeminiException | IllegalArgumentException e) {
             LOGGER.warn("Gemini demand forecast failed, using {} instead: {}",
-                    WeekdayHourlyAverageForecastStrategy.SOURCE, e.getMessage());
+                    HistoricalAverageForecastStrategy.SOURCE, e.getMessage());
             return baseline;
         }
     }
@@ -104,16 +111,58 @@ public class GeminiDemandForecastStrategy implements DemandForecastStrategy {
     }
 
     private String buildPrompt(ForecastContext context, ForecastResult baseline) {
+        return context.window().isSameDay()
+                ? restOfTodayPrompt(context, baseline)
+                : severalDaysPrompt(context, baseline);
+    }
+
+    /**
+     * Prompt for a window of several days: daily totals and the days left.
+     */
+    private String severalDaysPrompt(ForecastContext context, ForecastResult baseline) {
+        LocalDate today = context.now().toLocalDate();
+        LocalDate lastDay = context.window().until().toLocalDate();
+        long daysLeft = Math.max(java.time.temporal.ChronoUnit.DAYS.between(today, lastDay), 1);
+
+        StringBuilder prompt = new StringBuilder()
+                .append("Você é um analista de demanda de ").append(context.businessDescription()).append(". ")
+                .append("Estime quantas unidades do item abaixo serão vendidas de hoje até ")
+                .append(lastDay).append(" (").append(daysLeft).append(" dias), quando ele deixa de poder ")
+                .append("ser vendido.\n\n")
+                .append("Item: ").append(context.resourceName())
+                .append(" (categoria: ").append(context.resourceCategory()).append(")\n")
+                .append("Estoque atual: ").append(context.currentStock()).append(" unidades\n")
+                .append("Hoje: ").append(weekday(today)).append(", ").append(today).append("\n\n")
+                .append("Histórico diário (data, unidades vendidas no dia):\n");
+
+        Map<LocalDate, int[]> daily = dailySummary(context.salesHistory(), today, LocalTime.MIN, LocalTime.MAX);
+        if (daily.isEmpty()) {
+            prompt.append("- sem vendas registradas\n");
+        } else {
+            daily.forEach((day, units) -> prompt.append("- ").append(day).append(": ").append(units[1]).append('\n'));
+        }
+
+        return prompt.append("\nEstimativa estatística de referência (média diária × dias restantes): ")
+                .append(baseline.predictedQuantity()).append(" unidades, confiança ")
+                .append(baseline.confidence()).append(".\n\n")
+                .append(RULES)
+                .toString();
+    }
+
+    /**
+     * Prompt for a window within today: sales in the same time slot of past days.
+     */
+    private String restOfTodayPrompt(ForecastContext context, ForecastResult baseline) {
         LocalDate today = context.now().toLocalDate();
         LocalTime slotStart = context.now().toLocalTime();
-        LocalTime slotEnd = context.closingAt().toLocalTime();
+        LocalTime slotEnd = context.window().until().toLocalTime();
         String slot = HOUR.format(slotStart) + "-" + HOUR.format(slotEnd);
 
         StringBuilder prompt = new StringBuilder()
-                .append("Você é um analista de demanda de um pequeno estabelecimento de alimentos. ")
-                .append("Estime quantas unidades do produto abaixo ainda serão vendidas hoje, das ")
-                .append(HOUR.format(slotStart)).append(" até o fechamento às ").append(HOUR.format(slotEnd))
-                .append(".\n\n")
+                .append("Você é um analista de demanda de ").append(context.businessDescription()).append(". ")
+                .append("Estime quantas unidades do item abaixo ainda serão vendidas hoje, das ")
+                .append(HOUR.format(slotStart)).append(" até ").append(HOUR.format(slotEnd))
+                .append(", quando ele deixa de poder ser vendido.\n\n")
                 .append("Produto: ").append(context.resourceName())
                 .append(" (categoria: ").append(context.resourceCategory()).append(")\n")
                 .append("Estoque atual: ").append(context.currentStock()).append(" unidades\n")
@@ -136,9 +185,7 @@ public class GeminiDemandForecastStrategy implements DemandForecastStrategy {
         return prompt.append("\nEstimativa estatística de referência (média do mesmo intervalo em dias ")
                 .append("comparáveis): ").append(baseline.predictedQuantity()).append(" unidades, confiança ")
                 .append(baseline.confidence()).append(".\n\n")
-                .append("Regras: predictedQuantity é um inteiro entre 0 e o estoque atual; confidence é LOW, ")
-                .append("MEDIUM ou HIGH conforme a quantidade e a consistência do histórico; rationale é ")
-                .append("uma frase curta em português explicando a estimativa.")
+                .append(RULES)
                 .toString();
     }
 

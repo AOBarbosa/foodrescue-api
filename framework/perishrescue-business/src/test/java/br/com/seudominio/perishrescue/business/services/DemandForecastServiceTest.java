@@ -9,7 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import br.com.seudominio.perishrescue.business.forecast.ForecastEligibilityChecker;
-import br.com.seudominio.perishrescue.business.forecast.WeekdayHourlyAverageForecastStrategy;
+import br.com.seudominio.perishrescue.business.forecast.HistoricalAverageForecastStrategy;
 import br.com.seudominio.perishrescue.core.money.Money;
 import br.com.seudominio.perishrescue.core.time.TimeProvider;
 import br.com.seudominio.perishrescue.core.utils.MessageUtils;
@@ -63,8 +63,8 @@ class DemandForecastServiceTest {
 
         service = new DemandForecastService(
                 forecastRepository, new DemandForecastMapper(), mock(Validator.class), mock(MessageUtils.class),
-                resourceRepository, saleRepository, new WeekdayHourlyAverageForecastStrategy(),
-                new ForecastEligibilityChecker(5), timeProvider, "22:00", 4);
+                resourceRepository, saleRepository, new HistoricalAverageForecastStrategy(),
+                new ForecastEligibilityChecker(5), timeProvider, (resource, at) -> new br.com.seudominio.perishrescue.business.forecast.ForecastWindow(at, at.toLocalDate().atTime(22, 0), java.time.temporal.ChronoUnit.HOURS), "um pequeno estabelecimento de alimentos", 4);
 
         Offerer offerer = new Offerer();
         offerer.setId(1L);
@@ -107,7 +107,7 @@ class DemandForecastServiceTest {
         assertThat(response.stockQuantity()).isEqualTo(20);
         assertThat(response.confidence()).isEqualTo(ForecastConfidence.HIGH);
         assertThat(response.sampleSize()).isEqualTo(8);
-        assertThat(response.source()).isEqualTo(WeekdayHourlyAverageForecastStrategy.SOURCE);
+        assertThat(response.source()).isEqualTo(HistoricalAverageForecastStrategy.SOURCE);
         assertThat(response.calculatedAt()).isEqualTo(NOW);
         assertThat(response.forecastUntil()).isEqualTo(LocalDateTime.of(2026, 9, 14, 22, 0));
         verify(forecastRepository).save(any(DemandForecast.class));

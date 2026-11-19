@@ -12,6 +12,12 @@ import br.com.seudominio.perishrescue.domain.entities.AiRecommendation;
  */
 public enum RecommendationType {
 
+    /** Suggests a discount on the resource's price. */
     DISCOUNT,
-    SURPLUS_DESTINATION
+
+    /** Suggests showing the resource to beneficiaries with priority. */
+    SURPLUS_DESTINATION,
+
+    /** Suggests taking the remaining units off sale and donating them. */
+    DONATION
 }

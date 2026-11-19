@@ -17,7 +17,8 @@ class RiskWeightedDiscountStrategyTest {
             new RiskWeightedDiscountStrategy(RISK_FACTOR, URGENCY_BONUS, URGENT_HOURS, MAX_DISCOUNT);
 
     private DiscountContext context(double risk, int stock, int surplus, long hoursUntilClosing, Long daysToExpire) {
-        return new DiscountContext(Percentage.of(risk), stock, surplus, hoursUntilClosing, daysToExpire);
+        return new DiscountContext(Percentage.of(risk), stock, surplus,
+                new br.com.seudominio.perishrescue.business.forecast.ForecastWindow(java.time.LocalDateTime.of(2026, 11, 18, 18, 0), java.time.LocalDateTime.of(2026, 11, 18, 18, 0).plusHours(hoursUntilClosing), java.time.temporal.ChronoUnit.HOURS), daysToExpire);
     }
 
     @Test

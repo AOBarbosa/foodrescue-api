@@ -2,6 +2,8 @@ package br.com.seudominio.perishrescue.business.services;
 
 import br.com.seudominio.perishrescue.business.event.DiscountRecommendationRespondedEvent;
 import br.com.seudominio.perishrescue.business.event.DomainEventPublisher;
+import br.com.seudominio.perishrescue.business.forecast.ForecastHorizon;
+import br.com.seudominio.perishrescue.business.forecast.ForecastWindow;
 import br.com.seudominio.perishrescue.business.strategy.DiscountContext;
 import br.com.seudominio.perishrescue.business.strategy.DiscountRecommendationStrategy;
 import br.com.seudominio.perishrescue.business.strategy.SurplusAction;
@@ -36,7 +38,6 @@ import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
@@ -70,10 +71,10 @@ public class AiRecommendationService extends GenericService<AiRecommendation, Di
     private final DiscountRecommendationStrategy discountStrategy;
     private final DomainEventPublisher eventPublisher;
     private final TimeProvider timeProvider;
-    private final LocalTime closingTime;
+    private final ForecastHorizon forecastHorizon;
     private final long ttlHours;
     private final SurplusDestinationStrategy surplusStrategy;
-    private final long reassessmentWindowHours;
+    private final long reassessmentWindow;
     private final long reassessmentCooldownMinutes;
 
     /**
@@ -88,10 +89,11 @@ public class AiRecommendationService extends GenericService<AiRecommendation, Di
      * @param discountStrategy the discount formula
      * @param eventPublisher   the domain event publisher
      * @param timeProvider     the current date and time provider
-     * @param closingTime      the end of the business day, shared with the forecast of UC05
+     * @param forecastHorizon  the instance's forecast horizon (hot spot 4), shared with the forecast of UC05
      * @param ttlHours         how many hours a pending recommendation waits before expiring
      * @param surplusStrategy  the decision between a deeper discount and priority (UC10)
-     * @param reassessmentWindowHours how many hours before closing a persisting risk is reassessed (UC10)
+     * @param reassessmentWindow how much time before the end of the forecast window, in the window's
+     *                           unit (hours for FoodRescue), a persisting risk is reassessed (UC10)
      * @param reassessmentCooldownMinutes minimum minutes between two recommendations of the same resource (UC10)
      */
     public AiRecommendationService(
@@ -104,10 +106,10 @@ public class AiRecommendationService extends GenericService<AiRecommendation, Di
             DiscountRecommendationStrategy discountStrategy,
             DomainEventPublisher eventPublisher,
             TimeProvider timeProvider,
-            @Value("${app.forecast.closing-time:22:00}") String closingTime,
+            ForecastHorizon forecastHorizon,
             @Value("${app.discount.recommendation-ttl-hours:24}") long ttlHours,
             SurplusDestinationStrategy surplusStrategy,
-            @Value("${app.surplus.window-hours:3}") long reassessmentWindowHours,
+            @Value("${app.surplus.window:${app.surplus.window-hours:3}}") long reassessmentWindow,
             @Value("${app.surplus.cooldown-minutes:60}") long reassessmentCooldownMinutes) {
         super(repository, mapper, validator, messageUtils);
         this.recommendationRepository = repository;
@@ -117,10 +119,10 @@ public class AiRecommendationService extends GenericService<AiRecommendation, Di
         this.discountStrategy = discountStrategy;
         this.eventPublisher = eventPublisher;
         this.timeProvider = timeProvider;
-        this.closingTime = LocalTime.parse(closingTime);
+        this.forecastHorizon = forecastHorizon;
         this.ttlHours = ttlHours;
         this.surplusStrategy = surplusStrategy;
-        this.reassessmentWindowHours = reassessmentWindowHours;
+        this.reassessmentWindow = reassessmentWindow;
         this.reassessmentCooldownMinutes = reassessmentCooldownMinutes;
     }
 
@@ -270,7 +272,8 @@ public class AiRecommendationService extends GenericService<AiRecommendation, Di
 
     /**
      * Reassesses the risk of the resources whose last recommendation of the day
-     * did not solve the problem and, when it persists close to closing time,
+     * did not solve the problem and, when it persists close to the end of the
+     * resource's forecast window ({@link ForecastHorizon}, hot spot 4),
      * generates a new pending recommendation chained to the previous one
      * (UC10). Resources already sold out, no longer at risk, already waiting
      * for an answer or recommended too recently are left alone.
@@ -282,14 +285,9 @@ public class AiRecommendationService extends GenericService<AiRecommendation, Di
      */
     public List<DiscountRecommendationDTO> reassessSurplusDestination() {
         LocalDateTime now = timeProvider.now();
-        Duration remaining = Duration.between(now, now.toLocalDate().atTime(closingTime));
-
-        if (remaining.isNegative() || remaining.toHours() >= reassessmentWindowHours) {
-            return List.of();
-        }
 
         return recommendationRepository.findChainTailsSince(now.toLocalDate().atStartOfDay()).stream()
-                .map(tail -> reassess(tail, now, remaining))
+                .map(tail -> reassess(tail, now))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .toList();
@@ -317,10 +315,16 @@ public class AiRecommendationService extends GenericService<AiRecommendation, Di
                 .toList();
     }
 
-    private Optional<DiscountRecommendationDTO> reassess(
-            AiRecommendation tail, LocalDateTime now, Duration remaining) {
+    private Optional<DiscountRecommendationDTO> reassess(AiRecommendation tail, LocalDateTime now) {
         PerishableResource resource = tail.getResource();
         Long resourceId = resource.getId();
+
+        ForecastWindow window = forecastHorizon.windowFor(resource, now);
+        boolean closeToTheEnd = !window.isOver()
+                && window.remaining().compareTo(Duration.of(reassessmentWindow, window.granularity())) < 0;
+        if (!closeToTheEnd) {
+            return Optional.empty();
+        }
 
         boolean soldOut = resource.getStockQuantity() <= 0;
         boolean tooRecent = tail.getCreationDate() == null
@@ -343,19 +347,27 @@ public class AiRecommendationService extends GenericService<AiRecommendation, Di
                 Percentage.of(risk.riskPercentage()),
                 risk.stockQuantity(),
                 risk.expectedSurplus(),
-                remaining.toHours(),
+                window,
                 currentDiscountOf(resource),
                 tail.getType()));
 
         boolean discount = decision.action() == SurplusAction.ADDITIONAL_DISCOUNT;
         AiRecommendation next = AiRecommendation.builder()
                 .resource(resource)
-                .type(discount ? RecommendationType.DISCOUNT : RecommendationType.SURPLUS_DESTINATION)
+                .type(typeOf(decision.action()))
                 .suggestedPercentage(discount ? decision.percentage() : null)
                 .previousRecommendationId(tail.getId())
                 .build();
 
         return Optional.of(toDto(recommendationRepository.save(next)));
+    }
+
+    private static RecommendationType typeOf(SurplusAction action) {
+        return switch (action) {
+            case ADDITIONAL_DISCOUNT -> RecommendationType.DISCOUNT;
+            case PRIORITIZE -> RecommendationType.SURPLUS_DESTINATION;
+            case DONATE -> RecommendationType.DONATION;
+        };
     }
 
     private boolean hasPending(Long resourceId) {
@@ -403,14 +415,13 @@ public class AiRecommendationService extends GenericService<AiRecommendation, Di
     }
 
     private DiscountContext contextFor(PerishableResource resource, WasteRiskDTO risk, LocalDateTime now) {
-        LocalDateTime closingAt = now.toLocalDate().atTime(closingTime);
         LocalDate expirationDate = resource.getExpirationDate();
 
         return new DiscountContext(
                 Percentage.of(risk.riskPercentage()),
                 risk.stockQuantity(),
                 risk.expectedSurplus(),
-                Duration.between(now, closingAt).toHours(),
+                forecastHorizon.windowFor(resource, now),
                 expirationDate == null ? null : ChronoUnit.DAYS.between(now.toLocalDate(), expirationDate));
     }
 

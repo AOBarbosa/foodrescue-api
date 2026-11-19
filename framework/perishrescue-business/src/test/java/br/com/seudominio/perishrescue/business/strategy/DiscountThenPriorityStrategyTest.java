@@ -12,7 +12,8 @@ class DiscountThenPriorityStrategyTest {
     private final DiscountThenPriorityStrategy strategy = new DiscountThenPriorityStrategy(10, 60);
 
     private SurplusContext context(double currentDiscount) {
-        return new SurplusContext(Percentage.of(80), 20, 16, 2, Percentage.of(currentDiscount),
+        return new SurplusContext(Percentage.of(80), 20, 16,
+                new br.com.seudominio.perishrescue.business.forecast.ForecastWindow(java.time.LocalDateTime.of(2026, 11, 18, 18, 0), java.time.LocalDateTime.of(2026, 11, 18, 18, 0).plusHours(2), java.time.temporal.ChronoUnit.HOURS), Percentage.of(currentDiscount),
                 RecommendationType.DISCOUNT);
     }
 
@@ -35,5 +36,29 @@ class DiscountThenPriorityStrategyTest {
 
         assertThat(decision.action()).isEqualTo(SurplusAction.PRIORITIZE);
         assertThat(decision.percentage()).isNull();
+    }
+
+    private SurplusContext exhausted(RecommendationType previous) {
+        return new SurplusContext(Percentage.of(80), 20, 16,
+                new br.com.seudominio.perishrescue.business.forecast.ForecastWindow(
+                        java.time.LocalDateTime.of(2026, 11, 18, 18, 0),
+                        java.time.LocalDateTime.of(2026, 11, 18, 20, 0), java.time.temporal.ChronoUnit.HOURS),
+                Percentage.of(60), previous);
+    }
+
+    @Test
+    void neverSuggestsADonationUnlessTheInstanceEnablesIt() {
+        assertThat(strategy.decide(exhausted(RecommendationType.SURPLUS_DESTINATION)).action())
+                .isEqualTo(SurplusAction.PRIORITIZE);
+    }
+
+    @Test
+    void suggestsADonationWhenEnabledAndThePriorityExposureDidNotSolveIt() {
+        DiscountThenPriorityStrategy donating = new DiscountThenPriorityStrategy(10, 60, true);
+
+        assertThat(donating.decide(exhausted(RecommendationType.DISCOUNT)).action())
+                .isEqualTo(SurplusAction.PRIORITIZE);
+        assertThat(donating.decide(exhausted(RecommendationType.SURPLUS_DESTINATION)).action())
+                .isEqualTo(SurplusAction.DONATE);
     }
 }

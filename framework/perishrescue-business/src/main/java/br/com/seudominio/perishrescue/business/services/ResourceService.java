@@ -20,6 +20,7 @@ import br.com.seudominio.perishrescue.persistence.repositories.OffererRepository
 import br.com.seudominio.perishrescue.persistence.repositories.ResourceRepository;
 import jakarta.validation.Validator;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -235,6 +236,28 @@ public class ResourceService extends GenericService<PerishableResource, Resource
         announceIfDepleted(saved);
 
         return saved;
+    }
+
+    /**
+     * Takes every remaining unit of a resource off sale to be donated, after
+     * the offerer accepted a donation recommendation (UC10). The stock drops to
+     * zero, which announces a depleted stock and withdraws the open offers.
+     *
+     * <p>Called after the recommendation's transaction committed, so it opens
+     * one of its own.</p>
+     *
+     * @param id        the resource id
+     * @param offererId the offerer that owns it
+     * @return how many units were donated
+     * @throws EntityNotFoundException if the resource does not exist or belongs to another offerer
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public int donateRemainingStock(Long id, Long offererId) {
+        PerishableResource resource = findResourceOwnedBy(id, offererId);
+        int donated = Math.max(resource.getStockQuantity(), 0);
+        resource.setStockQuantity(0);
+        announceIfDepleted(resourceRepository.save(resource));
+        return donated;
     }
 
     /**

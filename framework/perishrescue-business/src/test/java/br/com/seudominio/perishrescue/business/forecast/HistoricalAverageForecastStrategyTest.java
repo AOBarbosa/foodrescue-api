@@ -12,12 +12,12 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-class WeekdayHourlyAverageForecastStrategyTest {
+class HistoricalAverageForecastStrategyTest {
 
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 9, 14, 15, 0);
     private static final LocalDateTime CLOSING_AT = LocalDateTime.of(2026, 9, 14, 22, 0);
 
-    private final WeekdayHourlyAverageForecastStrategy strategy = new WeekdayHourlyAverageForecastStrategy();
+    private final HistoricalAverageForecastStrategy strategy = new HistoricalAverageForecastStrategy();
 
     private Sale sale(LocalDateTime soldAt, int quantity) {
         return Sale.builder()
@@ -32,7 +32,7 @@ class WeekdayHourlyAverageForecastStrategyTest {
                 .salesHistory(history)
                 .currentStock(stock)
                 .now(now)
-                .closingAt(CLOSING_AT)
+                .until(CLOSING_AT)
                 .build();
     }
 

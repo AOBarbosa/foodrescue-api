@@ -77,7 +77,7 @@ class AiRecommendationServiceTest {
         service = new AiRecommendationService(
                 recommendationRepository, new AiRecommendationMapper(), mock(Validator.class),
                 mock(MessageUtils.class), resourceService, wasteRiskService,
-                new RiskWeightedDiscountStrategy(0.6, 15, 4, 60), eventPublisher, timeProvider, "22:00", 24,
+                new RiskWeightedDiscountStrategy(0.6, 15, 4, 60), eventPublisher, timeProvider, (resource, at) -> new br.com.seudominio.perishrescue.business.forecast.ForecastWindow(at, at.toLocalDate().atTime(22, 0), java.time.temporal.ChronoUnit.HOURS), 24,
                 new DiscountThenPriorityStrategy(10, 60), 3, 60);
 
         offerer = new Offerer();
