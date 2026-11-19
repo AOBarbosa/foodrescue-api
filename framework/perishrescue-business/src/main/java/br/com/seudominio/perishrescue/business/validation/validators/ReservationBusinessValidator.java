@@ -3,14 +3,14 @@ package br.com.seudominio.perishrescue.business.validation.validators;
 import br.com.seudominio.perishrescue.business.validation.BusinessValidator;
 import br.com.seudominio.perishrescue.core.validation.AbstractValidator;
 import br.com.seudominio.perishrescue.core.validation.BusinessOperation;
-import br.com.seudominio.perishrescue.domain.entities.OfferOrder;
+import br.com.seudominio.perishrescue.domain.entities.Reservation;
 
 import jakarta.validation.Validator;
 
 import org.springframework.stereotype.Component;
 
 /**
- * Business validator for {@link OfferOrder} (UC09).
+ * Business validator for {@link Reservation} (UC09).
  *
  * <p>Guards the invariants of a beneficiary reservation: it always references an
  * offer and a beneficiary, has a positive quantity, and carries a status.</p>
@@ -19,8 +19,8 @@ import org.springframework.stereotype.Component;
  * @since 1.0.0
  */
 @Component
-public class OfferOrderBusinessValidator extends AbstractValidator<OfferOrder>
-        implements BusinessValidator<OfferOrder> {
+public class ReservationBusinessValidator extends AbstractValidator<Reservation>
+        implements BusinessValidator<Reservation> {
 
     private final Validator validator;
 
@@ -29,14 +29,14 @@ public class OfferOrderBusinessValidator extends AbstractValidator<OfferOrder>
      *
      * @param validator the bean validator
      */
-    public OfferOrderBusinessValidator(Validator validator) {
+    public ReservationBusinessValidator(Validator validator) {
         this.validator = validator;
     }
 
     @Override
-    protected void doValidate(OfferOrder order) {
+    protected void doValidate(Reservation order) {
         if (order == null) {
-            addError("offerOrder must not be null", "offerOrder", null, "NULL_ENTITY");
+            addError("reservation must not be null", "reservation", null, "NULL_ENTITY");
             return;
         }
 
@@ -53,30 +53,30 @@ public class OfferOrderBusinessValidator extends AbstractValidator<OfferOrder>
     }
 
     @Override
-    public void validateOperation(OfferOrder entity, BusinessOperation operation) {
+    public void validateOperation(Reservation entity, BusinessOperation operation) {
         validate(entity);
     }
 
-    private void validateOffer(OfferOrder order) {
+    private void validateOffer(Reservation order) {
         if (order.getOffer() == null) {
-            addError("offerOrder must reference an offer", "offer", null, "ORDER_WITHOUT_OFFER");
+            addError("reservation must reference an offer", "offer", null, "ORDER_WITHOUT_OFFER");
         }
     }
 
-    private void validateBeneficiary(OfferOrder order) {
+    private void validateBeneficiary(Reservation order) {
         if (order.getBeneficiary() == null) {
-            addError("offerOrder must reference a beneficiary", "beneficiary", null, "ORDER_WITHOUT_BENEFICIARY");
+            addError("reservation must reference a beneficiary", "beneficiary", null, "ORDER_WITHOUT_BENEFICIARY");
         }
     }
 
-    private void validateQuantity(OfferOrder order) {
+    private void validateQuantity(Reservation order) {
         if (order.getQuantity() <= 0) {
             addError("quantity must be greater than zero",
                     "quantity", order.getQuantity(), "QUANTITY_NOT_POSITIVE");
         }
     }
 
-    private void validateStatus(OfferOrder order) {
+    private void validateStatus(Reservation order) {
         if (order.getStatus() == null) {
             addError("status must not be null", "status", null, "STATUS_NULL");
         }

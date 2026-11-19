@@ -1,9 +1,13 @@
 package br.com.seudominio.perishrescue.business.services;
 
+import br.com.seudominio.perishrescue.business.event.InProcessDomainEventPublisher;
+import br.com.seudominio.perishrescue.business.pricing.PriceCalculator;
+import br.com.seudominio.perishrescue.business.rescue.RepositoryReservationHistory;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 import br.com.seudominio.perishrescue.business.validation.validators.OfferBusinessValidator;
-import br.com.seudominio.perishrescue.business.validation.validators.OfferOrderBusinessValidator;
+import br.com.seudominio.perishrescue.business.validation.validators.ReservationBusinessValidator;
 import br.com.seudominio.perishrescue.core.money.Money;
 import br.com.seudominio.perishrescue.core.time.SystemTimeProvider;
 import br.com.seudominio.perishrescue.core.utils.MessageUtils;
@@ -14,11 +18,11 @@ import br.com.seudominio.perishrescue.domain.entities.Offer;
 import br.com.seudominio.perishrescue.domain.entities.PerishableResource;
 import br.com.seudominio.perishrescue.domain.enums.OfferStatus;
 import br.com.seudominio.perishrescue.domain.mappers.OfferMapper;
-import br.com.seudominio.perishrescue.domain.mappers.OfferOrderMapper;
+import br.com.seudominio.perishrescue.domain.mappers.ReservationMapper;
 import br.com.seudominio.perishrescue.domain.mappers.ResourceMapper;
 import br.com.seudominio.perishrescue.persistence.repositories.BeneficiaryRepository;
 import br.com.seudominio.perishrescue.persistence.repositories.OffererRepository;
-import br.com.seudominio.perishrescue.persistence.repositories.OfferOrderRepository;
+import br.com.seudominio.perishrescue.persistence.repositories.ReservationRepository;
 import br.com.seudominio.perishrescue.persistence.repositories.OfferRepository;
 import br.com.seudominio.perishrescue.persistence.repositories.ResourceRepository;
 import br.com.seudominio.perishrescue.domain.testsupport.TestResource;
@@ -59,14 +63,14 @@ import java.util.concurrent.atomic.AtomicReference;
  * {@link ObjectOptimisticLockingFailureException}.
  */
 @SpringBootTest(
-        classes = OfferOrderConcurrencyTest.TestConfig.class,
+        classes = ReservationConcurrencyTest.TestConfig.class,
         properties = {
                 "spring.datasource.url=jdbc:h2:mem:uc09_concurrency;DB_CLOSE_DELAY=-1",
                 "spring.datasource.driver-class-name=org.h2.Driver",
                 "spring.jpa.hibernate.ddl-auto=create-drop",
                 "spring.jpa.open-in-view=false"
         })
-class OfferOrderConcurrencyTest {
+class ReservationConcurrencyTest {
 
     private static final AtomicReference<CyclicBarrier> FIND_BARRIER = new AtomicReference<>();
 
@@ -75,14 +79,17 @@ class OfferOrderConcurrencyTest {
     @EntityScan(basePackageClasses = {Offer.class, TestResource.class})
     @EnableJpaRepositories(basePackageClasses = OfferRepository.class)
     @Import({
-            OfferOrderService.class,
+            ReservationService.class,
             OfferService.class,
-            OfferOrderMapper.class,
+            ReservationMapper.class,
             OfferMapper.class,
             ResourceMapper.class,
-            OfferOrderBusinessValidator.class,
+            ReservationBusinessValidator.class,
             OfferBusinessValidator.class,
-            SystemTimeProvider.class
+            SystemTimeProvider.class,
+            PriceCalculator.class,
+            RepositoryReservationHistory.class,
+            InProcessDomainEventPublisher.class
     })
     static class TestConfig {
 
@@ -135,10 +142,10 @@ class OfferOrderConcurrencyTest {
     private OfferRepository offerRepository;
 
     @Autowired
-    private OfferOrderRepository offerOrderRepository;
+    private ReservationRepository reservationRepository;
 
     @Autowired
-    private OfferOrderService offerOrderService;
+    private ReservationService reservationService;
 
     @Test
     void twoSimultaneousReservationsDoNotExceedAvailableQuantityAndRaiseOptimisticLockConflict() throws Exception {
@@ -180,15 +187,15 @@ class OfferOrderConcurrencyTest {
                 .discountedPrice(Money.of(10.00))
                 .availableQuantity(2)
                 .expiresAt(LocalDateTime.now().plusHours(3))
-                .status(OfferStatus.ACTIVE)
+                .status(OfferStatus.AVAILABLE)
                 .build());
 
         FIND_BARRIER.set(new CyclicBarrier(2));
         ExecutorService executor = Executors.newFixedThreadPool(2);
         try {
             List<Callable< Object>> tasks = List.of(
-                    () -> offerOrderService.reserve(new ReserveOfferRequest(offer.getId(), 2), firstBeneficiary.getId()),
-                    () -> offerOrderService.reserve(new ReserveOfferRequest(offer.getId(), 2), secondBeneficiary.getId())
+                    () -> reservationService.reserve(new ReserveOfferRequest(offer.getId(), 2), firstBeneficiary.getId()),
+                    () -> reservationService.reserve(new ReserveOfferRequest(offer.getId(), 2), secondBeneficiary.getId())
             );
 
             List<Future<Object>> futures = executor.invokeAll(tasks);
@@ -215,7 +222,7 @@ class OfferOrderConcurrencyTest {
 
         Offer reloadedOffer = offerRepository.findById(offer.getId()).orElseThrow();
         assertThat(reloadedOffer.getAvailableQuantity()).isZero();
-        assertThat(reloadedOffer.getStatus()).isEqualTo(OfferStatus.CLOSED);
-        assertThat(offerOrderRepository.count()).isEqualTo(1L);
+        assertThat(reloadedOffer.getStatus()).isEqualTo(OfferStatus.SOLD_OUT);
+        assertThat(reservationRepository.count()).isEqualTo(1L);
     }
 }

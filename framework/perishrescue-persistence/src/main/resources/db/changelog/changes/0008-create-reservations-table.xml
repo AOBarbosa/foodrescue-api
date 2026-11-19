@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0008-1-create-reservations-table" author="andre.barbosa">
+        <createTable tableName="reservations">
+            <column name="id" type="BIGINT">
+                <constraints primaryKey="true" primaryKeyName="reservations_pkey" nullable="false"/>
+            </column>
+            <column name="offer_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_reservations_offer" references="offers(id)"/>
+            </column>
+            <column name="beneficiary_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_reservations_beneficiary" references="beneficiaries(id)"/>
+            </column>
+            <column name="quantity" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="unit_price" type="NUMERIC(38,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="pickup_deadline" type="TIMESTAMP(6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="pickup_code" type="VARCHAR(12)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="rescued_at" type="TIMESTAMP(6)"/>
+            <column name="status" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="active" type="BOOLEAN"/>
+            <column name="creation_date" type="TIMESTAMP(6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="modification_date" type="TIMESTAMP(6)"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="0008-2-reservations-status-check" author="andre.barbosa">
+        <sql>
+            ALTER TABLE reservations ADD CONSTRAINT reservations_status_check
+                CHECK (status IN ('RESERVED', 'RESCUED', 'EXPIRED', 'CANCELLED'));
+        </sql>
+    </changeSet>
+
+    <!-- Supports the daily quota per CPF (QuotaPerBeneficiaryRule) and the expiration scan. -->
+    <changeSet id="0008-3-reservations-indexes" author="clovis.medeiros">
+        <createIndex tableName="reservations" indexName="idx_reservations_beneficiary_creation">
+            <column name="beneficiary_id"/>
+            <column name="creation_date"/>
+        </createIndex>
+        <createIndex tableName="reservations" indexName="idx_reservations_status_pickup_deadline">
+            <column name="status"/>
+            <column name="pickup_deadline"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

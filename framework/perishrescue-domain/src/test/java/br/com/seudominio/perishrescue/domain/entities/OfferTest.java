@@ -42,7 +42,7 @@ class OfferTest {
                 .expiresAt(LocalDateTime.now().plusHours(2))
                 .build();
 
-        assertThat(offer.getStatus()).isEqualTo(OfferStatus.ACTIVE);
+        assertThat(offer.getStatus()).isEqualTo(OfferStatus.AVAILABLE);
         assertThat(offer.isPriority()).isFalse();
     }
 

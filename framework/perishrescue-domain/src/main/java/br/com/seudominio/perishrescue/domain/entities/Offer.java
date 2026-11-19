@@ -4,6 +4,8 @@ import br.com.seudominio.perishrescue.core.money.Money;
 import br.com.seudominio.perishrescue.domain.builders.OfferBuilder;
 import br.com.seudominio.perishrescue.domain.converter.MoneyConverter;
 import br.com.seudominio.perishrescue.domain.enums.OfferStatus;
+import br.com.seudominio.perishrescue.domain.exception.BusinessRuleViolationException;
+import br.com.seudominio.perishrescue.domain.lifecycle.LifecycleStateMachine;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
@@ -155,8 +157,67 @@ public class Offer extends AbstractEntity {
         return status;
     }
 
+    /**
+     * Sets the status directly. Meant for persistence, builders and tests;
+     * business code moves the status with {@link #transitionTo}.
+     *
+     * @param status the status
+     */
     public void setStatus(OfferStatus status) {
         this.status = status;
+    }
+
+    /**
+     * Moves the offer to another state of the kernel's lifecycle state machine.
+     *
+     * @param target the new status
+     * @throws br.com.seudominio.perishrescue.domain.exception.BusinessRuleViolationException
+     *         if the current status does not allow it
+     */
+    public void transitionTo(OfferStatus target) {
+        this.status = LifecycleStateMachine.transition("offer", id, status, target);
+    }
+
+    /**
+     * Takes units out of an available offer, moving it to
+     * {@link OfferStatus#SOLD_OUT} when none is left.
+     *
+     * @param units how many units to take; positive and at most what is available
+     * @throws br.com.seudominio.perishrescue.domain.exception.BusinessRuleViolationException
+     *         if the offer is not available or has fewer units left
+     */
+    public void takeUnits(int units) {
+        if (status != OfferStatus.AVAILABLE) {
+            throw new BusinessRuleViolationException(String.format(
+                    "offer %d is not available: current status is %s", id, status));
+        }
+        if (units <= 0 || units > availableQuantity) {
+            throw new BusinessRuleViolationException(String.format(
+                    "offer %d has only %d units left", id, availableQuantity));
+        }
+        availableQuantity -= units;
+        if (availableQuantity == 0) {
+            transitionTo(OfferStatus.SOLD_OUT);
+        }
+    }
+
+    /**
+     * Gives back units of an expired or cancelled reservation. An open offer
+     * gets them back (a sold-out one becomes available again); a closed offer
+     * ignores them.
+     *
+     * @param units how many units to give back
+     * @return {@code true} if the offer took the units back
+     */
+    public boolean returnUnits(int units) {
+        if (status == null || !status.isOpen() || units <= 0) {
+            return false;
+        }
+        availableQuantity += units;
+        if (status == OfferStatus.SOLD_OUT) {
+            transitionTo(OfferStatus.AVAILABLE);
+        }
+        return true;
     }
 
     /**

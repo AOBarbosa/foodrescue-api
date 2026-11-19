@@ -78,6 +78,56 @@ reference implementation. The kernel's own tests use
 `domain.testsupport.TestResource`, published by `perishrescue-domain` as a
 test-jar, so the framework is tested without any instance.
 
+### Lifecycle and reservation flow (frozen spot)
+
+`domain.lifecycle.LifecycleStateMachine` enforces the transitions declared by
+the status enums; entities move only through `transitionTo(...)`:
+
+- `OfferStatus`: `AVAILABLE ⇄ SOLD_OUT` (units reserved / returned), both →
+  `EXPIRED` (deadline passed) or `WITHDRAWN` (closed by hand, superseded by a
+  new price, stock ran out). An offer's default deadline is its resource's
+  `criticalDeadline(now)`.
+- `ReservationStatus`: `RESERVED` → `RESCUED` (offerer confirms the pickup code
+  at `POST /reservations/{id}/pickup`; units leave the stock), `CANCELLED`
+  (`POST /reservations/{id}/cancel`) or `EXPIRED` (pickup window passed); the
+  last two give the units back to the offer.
+
+`ReservationService.reserve(...)` is the Template Method: load → check every
+`RescueRule` (hot spot 3) → price the unit with `PriceCalculator` (hot spot 2)
+and freeze it → take the units (`@Version`) → create the reservation with a
+pickup code and `pickupDeadline = min(now + pickup tolerance, offer deadline)`
+→ publish `ReservationStatusChangedEvent`. `ExpirationMonitor` and
+`RepricingScheduler` run the automatic transitions and repricing. Every
+transition publishes `OfferStatusChangedEvent` / `ReservationStatusChangedEvent`:
+instances react to those events instead of changing the flow.
+
+### Hot spots 2 and 3, and how defaults are overridden
+
+| Hot spot | Interface | Framework default | FoodRescue |
+|---|---|---|---|
+| 2. Pricing | `business.pricing.PricingPolicy` | `StepwiseDepreciationPolicy` from `perishrescue.pricing.reference/unit/steps` (no steps = no discount) | `FoodItemPricingPolicy`: 75% for surprise bags, else 30%/70% from 4h/1h before closing |
+| 3. Rescue rules | `business.rescue.RescueRule` (every bean is checked) | none; reusable `QuotaPerBeneficiaryRule`, `PickupWindowRule`, `MinimumLotRule` | `FoodRescueRulesConfiguration`: 3 units per CPF per day + pickup within business hours |
+
+Kernel rules around pricing (`PriceCalculator`): the policy discount is capped
+at `perishrescue.pricing.max-discount` (default 90), the larger of the policy's
+discount and the one already in the asking price wins, and repricing never
+raises a price. Rescue rules all run and their violations are reported
+together (422); the kernel's own invariants are not rules and always apply.
+
+Defaults live in `business.autoconfigure.PerishRescueDefaultsAutoConfiguration`,
+registered in `META-INF/spring/...AutoConfiguration.imports` and excluded from
+the kernel's component scan, so `@ConditionalOnMissingBean` is evaluated after
+the instance's beans: an instance overrides a default just by declaring its
+own bean.
+
+| Property | Default | Meaning |
+|---|---|---|
+| `perishrescue.pricing.max-discount` | `90` | Largest discount a pricing policy may grant (%) |
+| `perishrescue.pricing.reference` / `.unit` / `.steps` | `UNTIL_DEADLINE` / `HOURS` / empty | Default stepwise policy |
+| `perishrescue.pricing.repricing-interval-ms` | `300000` | Repricing period |
+| `perishrescue.reservation.pickup-tolerance-minutes` | `120` | How long a reservation waits for pickup |
+| `perishrescue.lifecycle.check-interval-ms` | `60000` | Expiration check period |
+
 ### Liquibase
 
 The kernel ships `db/changelog/perishrescue-master.xml`. An instance points

@@ -1,7 +1,12 @@
 package br.com.seudominio.foodrescue;
 
+import br.com.seudominio.foodrescue.pricing.FoodItemPricingPolicy;
 import br.com.seudominio.foodrescue.rest.FoodItemController;
-import br.com.seudominio.perishrescue.business.services.OfferOrderService;
+import br.com.seudominio.perishrescue.business.pricing.PricingPolicy;
+import br.com.seudominio.perishrescue.business.rescue.PickupWindowRule;
+import br.com.seudominio.perishrescue.business.rescue.QuotaPerBeneficiaryRule;
+import br.com.seudominio.perishrescue.business.rescue.RescueRule;
+import br.com.seudominio.perishrescue.business.services.ReservationService;
 import br.com.seudominio.perishrescue.business.services.OfferService;
 import br.com.seudominio.perishrescue.persistence.repositories.OfferRepository;
 import br.com.seudominio.perishrescue.rest.controller.OfferController;
@@ -48,7 +53,7 @@ class FoodRescueApplicationTest {
     @Test
     void bootsWithTheFrameworkKernelPluggedIn() {
         assertThat(context.getBeansOfType(OfferService.class)).hasSize(1);
-        assertThat(context.getBeansOfType(OfferOrderService.class)).hasSize(1);
+        assertThat(context.getBeansOfType(ReservationService.class)).hasSize(1);
         assertThat(context.getBeansOfType(OfferRepository.class)).hasSize(1);
         assertThat(context.getBeansOfType(OfferController.class)).hasSize(1);
         assertThat(context.getBeansOfType(FoodItemController.class)).hasSize(1);
@@ -56,10 +61,19 @@ class FoodRescueApplicationTest {
     }
 
     @Test
+    void theInstanceHotSpotsReplaceTheFrameworkDefaults() {
+        assertThat(context.getBean(PricingPolicy.class)).isInstanceOf(FoodItemPricingPolicy.class);
+        assertThat(context.getBeansOfType(RescueRule.class).values())
+                .hasSize(2)
+                .hasAtLeastOneElementOfType(QuotaPerBeneficiaryRule.class)
+                .hasAtLeastOneElementOfType(PickupWindowRule.class);
+    }
+
+    @Test
     void mapsTheFrameworkEntities() {
         assertThat(entityManagerFactory.getMetamodel().getEntities())
                 .extracting(entity -> entity.getJavaType().getSimpleName())
-                .contains("Offerer", "Beneficiary", "PerishableResource", "FoodItem", "Offer", "OfferOrder",
+                .contains("Offerer", "Beneficiary", "PerishableResource", "FoodItem", "Offer", "Reservation",
                         "Sale", "DemandForecast", "AiRecommendation");
     }
 }

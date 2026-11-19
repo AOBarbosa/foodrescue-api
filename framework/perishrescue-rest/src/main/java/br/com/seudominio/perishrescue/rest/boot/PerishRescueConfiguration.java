@@ -1,8 +1,11 @@
 package br.com.seudominio.perishrescue.rest.boot;
 
+import org.springframework.boot.autoconfigure.AutoConfigurationExcludeFilter;
 import org.springframework.boot.autoconfigure.AutoConfigurationPackage;
+import org.springframework.boot.context.TypeExcludeFilter;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
@@ -19,12 +22,20 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  *   <li>{@link EnableScheduling} turns on the kernel's periodic jobs.</li>
  * </ul>
  *
+ * <p>The scan skips the framework's auto-configuration classes (the default
+ * hot spot implementations): Spring Boot processes those after the
+ * instance's beans, which is what lets an instance override a default just
+ * by declaring its own bean.</p>
+ *
  * @author Clovis Medeiros
  * @since 1.0.0
  */
 @Configuration(proxyBeanMethods = false)
 @AutoConfigurationPackage(basePackages = PerishRescueConfiguration.FRAMEWORK_PACKAGE)
-@ComponentScan(PerishRescueConfiguration.FRAMEWORK_PACKAGE)
+@ComponentScan(value = PerishRescueConfiguration.FRAMEWORK_PACKAGE, excludeFilters = {
+        @ComponentScan.Filter(type = FilterType.CUSTOM, classes = TypeExcludeFilter.class),
+        @ComponentScan.Filter(type = FilterType.CUSTOM, classes = AutoConfigurationExcludeFilter.class)
+})
 @EnableScheduling
 public class PerishRescueConfiguration {
 

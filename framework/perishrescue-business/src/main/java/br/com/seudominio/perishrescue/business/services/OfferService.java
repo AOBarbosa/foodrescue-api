@@ -1,5 +1,9 @@
 package br.com.seudominio.perishrescue.business.services;
 
+import br.com.seudominio.perishrescue.business.event.DomainEventPublisher;
+import br.com.seudominio.perishrescue.business.event.OfferStatusChangedEvent;
+import br.com.seudominio.perishrescue.business.pricing.PriceCalculator;
+import br.com.seudominio.perishrescue.business.ranking.OfferRankingPolicy;
 import br.com.seudominio.perishrescue.business.validation.validators.OfferBusinessValidator;
 import br.com.seudominio.perishrescue.core.money.Money;
 import br.com.seudominio.perishrescue.core.time.TimeProvider;
@@ -17,20 +21,18 @@ import br.com.seudominio.perishrescue.persistence.repositories.OfferRepository;
 
 import jakarta.validation.Validator;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.time.LocalTime;
-import br.com.seudominio.perishrescue.business.ranking.OfferRankingPolicy;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 /**
- * Service that publishes surplus as offers to beneficiaries and closes them (UC08).
+ * Service that publishes surplus as offers to beneficiaries and drives each
+ * offer through the kernel's lifecycle state machine (UC08, frozen spot).
  *
  * <p>An offer is born in one of two ways, and both end at the same place:</p>
  * <ul>
@@ -40,11 +42,14 @@ import java.util.Optional;
  *   <li>manually, when the offerer publishes one itself.</li>
  * </ul>
  *
- * <p>An offer is closed when its units run out, when the resource runs out of
- * stock, or when the offerer closes it by hand. The invariant the issue
- * asks for &mdash; <em>an offer can never stay active without stock</em> &mdash;
- * is enforced by {@link #decreaseQuantity(Long, int)} and by
- * {@link #closeOffersForDepletedResource(Long)}.</p>
+ * <p>A new offer is {@link OfferStatus#AVAILABLE}, runs until its resource's
+ * {@code criticalDeadline} unless the offerer sets an earlier one, and is
+ * priced by the {@link PriceCalculator} (hot spot 2). It becomes
+ * {@link OfferStatus#SOLD_OUT} when every unit is reserved (and available
+ * again if a reservation gives units back), {@link OfferStatus#EXPIRED} when
+ * its deadline passes, and {@link OfferStatus#WITHDRAWN} when the offerer
+ * closes it, a new price supersedes it, or the resource runs out of stock.
+ * Every transition publishes an {@link OfferStatusChangedEvent}.</p>
  *
  * @author Hugo Jose
  * @since 1.0.0
@@ -58,19 +63,21 @@ public class OfferService extends GenericService<Offer, OfferDTO> {
     private final ResourceService resourceService;
     private final OfferBusinessValidator offerValidator;
     private final TimeProvider timeProvider;
-    private final LocalTime closingTime;
+    private final PriceCalculator priceCalculator;
+    private final DomainEventPublisher eventPublisher;
 
     /**
      * Constructor.
      *
-     * @param repository     the offer repository
-     * @param mapper         the offer mapper
-     * @param validator      the bean validator
-     * @param messageUtils   the message utils
+     * @param repository      the offer repository
+     * @param mapper          the offer mapper
+     * @param validator       the bean validator
+     * @param messageUtils    the message utils
      * @param resourceService the resource service, which owns resource lookup
-     * @param offerValidator the business validator for offers
-     * @param timeProvider   the current date and time provider
-     * @param closingTime    the end of the business day, shared with UC05 and UC07
+     * @param offerValidator  the business validator for offers
+     * @param timeProvider    the current date and time provider
+     * @param priceCalculator the kernel's pricing rules around the instance's pricing policy
+     * @param eventPublisher  the domain event publisher
      */
     public OfferService(
             OfferRepository repository,
@@ -80,29 +87,31 @@ public class OfferService extends GenericService<Offer, OfferDTO> {
             ResourceService resourceService,
             OfferBusinessValidator offerValidator,
             TimeProvider timeProvider,
-            @Value("${app.forecast.closing-time:22:00}") String closingTime) {
+            PriceCalculator priceCalculator,
+            DomainEventPublisher eventPublisher) {
         super(repository, mapper, validator, messageUtils);
         this.offerRepository = repository;
         this.offerMapper = mapper;
         this.resourceService = resourceService;
         this.offerValidator = offerValidator;
         this.timeProvider = timeProvider;
-        this.closingTime = LocalTime.parse(closingTime);
+        this.priceCalculator = priceCalculator;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
      * Publishes an offer manually.
      *
-     * <p>Only the resource is required: the price falls back to the resource's
-     * current price, the quantity to its whole stock, and the deadline to
-     * today's closing time.</p>
+     * <p>Only the resource is required: the asking price falls back to the
+     * resource's current price, the quantity to its whole stock, and the
+     * deadline to the resource's critical deadline.</p>
      *
-     * @param request         the offer data
+     * @param request   the offer data
      * @param offererId the authenticated offerer id
      * @return the published offer
      * @throws EntityNotFoundException        if the resource does not exist or belongs to another offerer
      * @throws BusinessRuleViolationException if the resource has no stock, the quantity exceeds the
-     *                                        stock, or an active offer already exists for the resource
+     *                                        stock, or an open offer already exists for the resource
      */
     public OfferDTO createOffer(CreateOfferRequest request, Long offererId) {
         if (request == null || request.resourceId() == null) {
@@ -111,9 +120,9 @@ public class OfferService extends GenericService<Offer, OfferDTO> {
 
         PerishableResource resource = resourceService.findResourceOwnedBy(request.resourceId(), offererId);
 
-        activeOfferOf(resource.getId()).ifPresent(existing -> {
+        openOfferOf(resource.getId()).ifPresent(existing -> {
             throw new BusinessRuleViolationException(String.format(
-                    "resource %d already has an active offer (id %d); close it before publishing another",
+                    "resource %d already has an open offer (id %d); close it before publishing another",
                     resource.getId(), existing.getId()));
         });
 
@@ -131,13 +140,14 @@ public class OfferService extends GenericService<Offer, OfferDTO> {
      * already outside the transaction that answered the recommendation, so it
      * opens one of its own.</p>
      *
-     * <p>If the resource already has an active offer, that offer carries the old
-     * price and is superseded: it is closed and a new one is published. This is
-     * the opposite of the manual path, which refuses &mdash; here the system is
-     * reacting to a price change and <em>must</em> replace the stale offer.</p>
+     * <p>If the resource already has an open offer, that offer carries the old
+     * price and is superseded: it is withdrawn and a new one is published.
+     * This is the opposite of the manual path, which refuses &mdash; here the
+     * system is reacting to a price change and <em>must</em> replace the stale
+     * offer.</p>
      *
-     * @param resourceId       the discounted resource
-     * @param offererId the offerer that owns it
+     * @param resourceId the discounted resource
+     * @param offererId  the offerer that owns it
      * @return the published offer, or empty if the resource has no stock to offer
      * @throws EntityNotFoundException if the resource does not exist or belongs to another offerer
      */
@@ -149,49 +159,36 @@ public class OfferService extends GenericService<Offer, OfferDTO> {
             return Optional.empty();
         }
 
-        activeOfferOf(resourceId).ifPresent(this::close);
+        openOfferOf(resourceId).ifPresent(offer -> move(offer, OfferStatus.WITHDRAWN));
 
         return Optional.of(toDto(publish(resource, resource.getCurrentPrice(), null, null)));
     }
 
     /**
-     * Closes an offer by hand, before its deadline.
-     *
-     * @param id              the offer id
-     * @param offererId the authenticated offerer id
-     * @return the closed offer
-     * @throws EntityNotFoundException        if the offer does not exist or belongs to another offerer
-     * @throws BusinessRuleViolationException if the offer is already closed
-     */
-    /**
      * Marks an offer as priority/featured for beneficiaries (UC11).
      *
-     * @param offerId         the offer id
+     * @param offerId   the offer id
      * @param offererId the authenticated offerer id
      * @return the updated offer
      * @throws EntityNotFoundException        if the offer does not exist or belongs to another offerer
-     * @throws BusinessRuleViolationException if the offer is not active
+     * @throws BusinessRuleViolationException if the offer is not open
      */
     public OfferDTO markAsPriority(Long offerId, Long offererId) {
         Offer offer = findOwnedBy(offerId, offererId);
-
-        if (offer.getStatus() != OfferStatus.ACTIVE) {
-            throw new BusinessRuleViolationException(String.format(
-                    "offer %d is not active: current status is %s", offerId, offer.getStatus()));
-        }
+        requireOpen(offer);
 
         offer.markAsPriority();
         return toDto(offerRepository.save(offer));
     }
 
     /**
-     * Marks the active offer of a resource as priority, or creates an active offer
-     * already flagged as priority if none exists (UC11).
+     * Marks the open offer of a resource as priority, or publishes one already
+     * flagged as priority if none exists (UC11).
      *
      * <p>Called automatically when a SURPLUS_DESTINATION recommendation is accepted.</p>
      *
-     * @param resourceId       the resource id
-     * @param offererId the offerer id
+     * @param resourceId the resource id
+     * @param offererId  the offerer id
      * @return the updated or created offer, or empty if no stock left
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -202,9 +199,9 @@ public class OfferService extends GenericService<Offer, OfferDTO> {
             return Optional.empty();
         }
 
-        Optional<Offer> existingActive = activeOfferOf(resourceId);
-        if (existingActive.isPresent()) {
-            Offer offer = existingActive.get();
+        Optional<Offer> existingOpen = openOfferOf(resourceId);
+        if (existingOpen.isPresent()) {
+            Offer offer = existingOpen.get();
             offer.markAsPriority();
             return Optional.of(toDto(offerRepository.save(offer)));
         }
@@ -213,28 +210,33 @@ public class OfferService extends GenericService<Offer, OfferDTO> {
         newOffer.markAsPriority();
         return Optional.of(toDto(offerRepository.save(newOffer)));
     }
+
+    /**
+     * Closes an offer by hand, before its deadline ({@link OfferStatus#WITHDRAWN}).
+     *
+     * @param id        the offer id
+     * @param offererId the authenticated offerer id
+     * @return the closed offer
+     * @throws EntityNotFoundException        if the offer does not exist or belongs to another offerer
+     * @throws BusinessRuleViolationException if the offer is already closed
+     */
     public OfferDTO closeOffer(Long id, Long offererId) {
         Offer offer = findOwnedBy(id, offererId);
+        requireOpen(offer);
 
-        if (offer.getStatus() != OfferStatus.ACTIVE) {
-            throw new BusinessRuleViolationException(String.format(
-                    "offer %d is not active: current status is %s", id, offer.getStatus()));
-        }
-
-        return toDto(close(offer));
+        return toDto(move(offer, OfferStatus.WITHDRAWN));
     }
 
     /**
-     * Takes units out of an offer, closing it when nothing is left.
-     *
-     * <p>This is the invariant the issue asks for: an offer never stays active
-     * with zero units. UC09 calls this when a beneficiary places an order.</p>
+     * Takes units out of an offer for a reservation, moving it to
+     * {@link OfferStatus#SOLD_OUT} when nothing is left. Relies on the
+     * offer's {@code @Version} for concurrent reservations.
      *
      * @param offerId  the offer id
      * @param quantity how many units to take
      * @return the updated offer
      * @throws EntityNotFoundException        if the offer does not exist
-     * @throws BusinessRuleViolationException if the offer is not active, has expired, the quantity
+     * @throws BusinessRuleViolationException if the offer is not available, has expired, the quantity
      *                                        is not positive, or there are not enough units left
      */
     public Offer decreaseQuantity(Long offerId, int quantity) {
@@ -244,43 +246,95 @@ public class OfferService extends GenericService<Offer, OfferDTO> {
         if (quantity <= 0) {
             throw new BusinessRuleViolationException("quantity must be greater than zero");
         }
-        if (offer.getStatus() != OfferStatus.ACTIVE) {
+        if (offer.getStatus() != OfferStatus.AVAILABLE) {
             throw new BusinessRuleViolationException(String.format(
-                    "offer %d is not active: current status is %s", offerId, offer.getStatus()));
+                    "offer %d is not available: current status is %s", offerId, offer.getStatus()));
         }
         if (!offer.getExpiresAt().isAfter(timeProvider.now())) {
             throw new BusinessRuleViolationException(String.format(
                     "offer %d has expired at %s", offerId, offer.getExpiresAt()));
         }
-        if (offer.getAvailableQuantity() < quantity) {
-            throw new BusinessRuleViolationException(String.format(
-                    "offer %d has only %d units left", offerId, offer.getAvailableQuantity()));
-        }
 
-        offer.setAvailableQuantity(offer.getAvailableQuantity() - quantity);
-        if (offer.getAvailableQuantity() == 0) {
-            offer.setStatus(OfferStatus.CLOSED);
-        }
-
-        return offerRepository.save(offer);
+        OfferStatus before = offer.getStatus();
+        offer.takeUnits(quantity);
+        Offer saved = offerRepository.save(offer);
+        announceIfChanged(saved, before);
+        return saved;
     }
 
     /**
-     * Closes every active offer of a resource that ran out of stock.
+     * Gives back the units of an expired or cancelled reservation. An open
+     * offer still within its deadline takes them back (a sold-out one becomes
+     * available again); otherwise they are simply not offered anymore.
+     *
+     * @param offer    the reserved offer
+     * @param quantity the units to give back
+     * @return {@code true} if the offer took the units back
+     */
+    public boolean returnUnits(Offer offer, int quantity) {
+        if (!offer.getExpiresAt().isAfter(timeProvider.now())) {
+            return false;
+        }
+        OfferStatus before = offer.getStatus();
+        boolean returned = offer.returnUnits(quantity);
+        if (returned) {
+            announceIfChanged(offerRepository.save(offer), before);
+        }
+        return returned;
+    }
+
+    /**
+     * Withdraws every open offer of a resource that ran out of stock.
      *
      * <p>Called by the listener of {@code ResourceStockDepletedEvent}, already
      * outside the transaction that emptied the stock, so it opens one of its own.</p>
      *
      * @param resourceId the resource that ran out
-     * @return how many offers were closed
+     * @return how many offers were withdrawn
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public int closeOffersForDepletedResource(Long resourceId) {
         List<Offer> openOffers = offerRepository
-                .findByResourceIdAndStatusAndActiveTrue(resourceId, OfferStatus.ACTIVE);
+                .findByResourceIdAndStatusInAndActiveTrue(resourceId, OfferStatus.openStatuses());
 
-        openOffers.forEach(this::close);
+        openOffers.forEach(offer -> move(offer, OfferStatus.WITHDRAWN));
         return openOffers.size();
+    }
+
+    /**
+     * Expires every open offer whose deadline has passed. Run periodically by
+     * the kernel's {@code ExpirationMonitor}.
+     *
+     * @return how many offers expired
+     */
+    public int expireOverdueOffers() {
+        List<Offer> overdue = offerRepository.findByStatusInAndExpiresAtLessThanEqualAndActiveTrue(
+                OfferStatus.openStatuses(), timeProvider.now());
+
+        overdue.forEach(offer -> move(offer, OfferStatus.EXPIRED));
+        return overdue.size();
+    }
+
+    /**
+     * Reapplies the pricing rules to every open offer still within its
+     * deadline, since the discount grows as the deadline approaches. Prices
+     * only go down. Run periodically by the kernel's {@code RepricingScheduler}.
+     *
+     * @return how many offers got a lower price
+     */
+    public int repriceOpenOffers() {
+        LocalDateTime now = timeProvider.now();
+        int repriced = 0;
+        for (Offer offer : offerRepository.findByStatusInAndExpiresAtGreaterThanAndActiveTrue(
+                OfferStatus.openStatuses(), now)) {
+            Money newPrice = priceCalculator.offerPrice(offer.getResource(), offer.getDiscountedPrice(), now);
+            if (offer.getDiscountedPrice().isGreaterThan(newPrice)) {
+                offer.setDiscountedPrice(newPrice);
+                offerRepository.save(offer);
+                repriced++;
+            }
+        }
+        return repriced;
     }
 
     /**
@@ -300,7 +354,7 @@ public class OfferService extends GenericService<Offer, OfferDTO> {
     /**
      * Finds one offer of an offerer.
      *
-     * @param id              the offer id
+     * @param id        the offer id
      * @param offererId the authenticated offerer id
      * @return the offer
      * @throws EntityNotFoundException if the offer does not exist or belongs to another offerer
@@ -311,8 +365,8 @@ public class OfferService extends GenericService<Offer, OfferDTO> {
     }
 
     /**
-     * Lists the offers a beneficiary can still order: active, not expired and with
-     * units left, highlighted ones first.
+     * Lists the offers a beneficiary can still reserve: available, not expired
+     * and with units left, highlighted ones first.
      *
      * @return the orderable offers
      */
@@ -325,7 +379,8 @@ public class OfferService extends GenericService<Offer, OfferDTO> {
                 .toList();
     }
 
-    private Offer publish(PerishableResource resource, Money price, Integer requestedQuantity, LocalDateTime requestedDeadline) {
+    private Offer publish(PerishableResource resource, Money askingPrice, Integer requestedQuantity,
+                          LocalDateTime requestedDeadline) {
         if (resource.getStockQuantity() <= 0) {
             throw new BusinessRuleViolationException(String.format(
                     "resource %d has no stock to offer", resource.getId()));
@@ -339,28 +394,49 @@ public class OfferService extends GenericService<Offer, OfferDTO> {
         }
 
         LocalDateTime now = timeProvider.now();
-        LocalDateTime deadline = requestedDeadline == null ? now.toLocalDate().atTime(closingTime) : requestedDeadline;
+        LocalDateTime deadline = requestedDeadline == null ? resource.criticalDeadline(now) : requestedDeadline;
 
         Offer offer = Offer.builder()
                 .resource(resource)
-                .discountedPrice(price)
+                .discountedPrice(askingPrice)
                 .availableQuantity(quantity)
                 .expiresAt(deadline)
                 .build();
 
+        // validate what the offerer asked for (e.g. never above the original price) before
+        // the pricing policy lowers it
         offerValidator.validateOperation(offer, BusinessOperation.CREATE);
+        offer.setDiscountedPrice(priceCalculator.offerPrice(resource, askingPrice, now));
 
         return offerRepository.save(offer);
     }
 
-    private Offer close(Offer offer) {
-        offer.setStatus(OfferStatus.CLOSED);
-        return offerRepository.save(offer);
+    private Offer move(Offer offer, OfferStatus target) {
+        OfferStatus before = offer.getStatus();
+        offer.transitionTo(target);
+        Offer saved = offerRepository.save(offer);
+        announceIfChanged(saved, before);
+        return saved;
     }
 
-    private Optional<Offer> activeOfferOf(Long resourceId) {
-        return offerRepository.findFirstByResourceIdAndStatusAndActiveTrueOrderByCreationDateDesc(
-                resourceId, OfferStatus.ACTIVE);
+    private void announceIfChanged(Offer offer, OfferStatus before) {
+        if (offer.getStatus() != before) {
+            eventPublisher.publish(new OfferStatusChangedEvent(
+                    offer.getId(), offer.getResource() == null ? null : offer.getResource().getId(),
+                    before, offer.getStatus()));
+        }
+    }
+
+    private static void requireOpen(Offer offer) {
+        if (offer.getStatus() == null || !offer.getStatus().isOpen()) {
+            throw new BusinessRuleViolationException(String.format(
+                    "offer %d is not open: current status is %s", offer.getId(), offer.getStatus()));
+        }
+    }
+
+    private Optional<Offer> openOfferOf(Long resourceId) {
+        return offerRepository.findFirstByResourceIdAndStatusInAndActiveTrueOrderByCreationDateDesc(
+                resourceId, OfferStatus.openStatuses());
     }
 
     private OfferDTO toDto(Offer offer) {

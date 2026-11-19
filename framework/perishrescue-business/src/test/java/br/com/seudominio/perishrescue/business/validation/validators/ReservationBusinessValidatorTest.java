@@ -10,8 +10,8 @@ import br.com.seudominio.perishrescue.core.validation.BusinessOperation;
 import br.com.seudominio.perishrescue.core.validation.exception.ValidationException;
 import br.com.seudominio.perishrescue.domain.entities.Beneficiary;
 import br.com.seudominio.perishrescue.domain.entities.Offer;
-import br.com.seudominio.perishrescue.domain.entities.OfferOrder;
-import br.com.seudominio.perishrescue.domain.enums.OfferOrderStatus;
+import br.com.seudominio.perishrescue.domain.entities.Reservation;
+import br.com.seudominio.perishrescue.domain.enums.ReservationStatus;
 
 import jakarta.validation.Validator;
 
@@ -20,23 +20,23 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 
-class OfferOrderBusinessValidatorTest {
+class ReservationBusinessValidatorTest {
 
-    private OfferOrderBusinessValidator validator;
+    private ReservationBusinessValidator validator;
 
     @BeforeEach
     void setUp() {
         Validator beanValidator = mock(Validator.class);
         when(beanValidator.validate(any())).thenReturn(Collections.emptySet());
-        validator = new OfferOrderBusinessValidator(beanValidator);
+        validator = new ReservationBusinessValidator(beanValidator);
     }
 
-    private OfferOrder validOrder() {
-        return OfferOrder.builder()
+    private Reservation validOrder() {
+        return Reservation.builder()
                 .offer(new Offer())
                 .beneficiary(new Beneficiary())
                 .quantity(2)
-                .status(OfferOrderStatus.RESERVED)
+                .status(ReservationStatus.RESERVED)
                 .build();
     }
 
@@ -54,27 +54,27 @@ class OfferOrderBusinessValidatorTest {
 
     @Test
     void rejectsOrderWithoutOffer() {
-        OfferOrder order = validOrder();
+        Reservation order = validOrder();
         order.setOffer(null);
 
         assertThatThrownBy(() -> validator.validateOperation(order, BusinessOperation.CREATE))
                 .isInstanceOf(ValidationException.class)
-                .hasMessageContaining("offerOrder must reference an offer");
+                .hasMessageContaining("reservation must reference an offer");
     }
 
     @Test
     void rejectsOrderWithoutBeneficiary() {
-        OfferOrder order = validOrder();
+        Reservation order = validOrder();
         order.setBeneficiary(null);
 
         assertThatThrownBy(() -> validator.validateOperation(order, BusinessOperation.CREATE))
                 .isInstanceOf(ValidationException.class)
-                .hasMessageContaining("offerOrder must reference a beneficiary");
+                .hasMessageContaining("reservation must reference a beneficiary");
     }
 
     @Test
     void rejectsOrderWithNonPositiveQuantity() {
-        OfferOrder order = validOrder();
+        Reservation order = validOrder();
         order.setQuantity(0);
 
         assertThatThrownBy(() -> validator.validateOperation(order, BusinessOperation.CREATE))
@@ -84,7 +84,7 @@ class OfferOrderBusinessValidatorTest {
 
     @Test
     void rejectsOrderWithoutStatus() {
-        OfferOrder order = validOrder();
+        Reservation order = validOrder();
         order.setStatus(null);
 
         assertThatThrownBy(() -> validator.validateOperation(order, BusinessOperation.CREATE))

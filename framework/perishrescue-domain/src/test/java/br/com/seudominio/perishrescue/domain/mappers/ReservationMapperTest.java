@@ -3,12 +3,12 @@ package br.com.seudominio.perishrescue.domain.mappers;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import br.com.seudominio.perishrescue.core.money.Money;
-import br.com.seudominio.perishrescue.domain.dtos.OfferOrderDTO;
+import br.com.seudominio.perishrescue.domain.dtos.ReservationDTO;
 import br.com.seudominio.perishrescue.domain.entities.Beneficiary;
 import br.com.seudominio.perishrescue.domain.entities.Offer;
-import br.com.seudominio.perishrescue.domain.entities.OfferOrder;
+import br.com.seudominio.perishrescue.domain.entities.Reservation;
 import br.com.seudominio.perishrescue.domain.entities.PerishableResource;
-import br.com.seudominio.perishrescue.domain.enums.OfferOrderStatus;
+import br.com.seudominio.perishrescue.domain.enums.ReservationStatus;
 import br.com.seudominio.perishrescue.domain.testsupport.TestResource;
 
 import org.junit.jupiter.api.Test;
@@ -16,9 +16,9 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-class OfferOrderMapperTest {
+class ReservationMapperTest {
 
-    private final OfferOrderMapper mapper = new OfferOrderMapper();
+    private final ReservationMapper mapper = new ReservationMapper();
 
     @Test
     void toDtoMapsAllFieldsAndComputesTotalPrice() {
@@ -43,16 +43,16 @@ class OfferOrderMapperTest {
                 .document("52998224725")
                 .build();
 
-        OfferOrder order = OfferOrder.builder()
+        Reservation order = Reservation.builder()
                 .id(900L)
                 .offer(offer)
                 .beneficiary(beneficiary)
                 .quantity(3)
-                .status(OfferOrderStatus.RESERVED)
+                .status(ReservationStatus.RESERVED)
                 .build();
         order.setCreationDate(now);
 
-        OfferOrderDTO dto = mapper.toDto(order);
+        ReservationDTO dto = mapper.toDto(order);
 
         assertThat(dto).isNotNull();
         assertThat(dto.id()).isEqualTo(900L);
@@ -63,23 +63,23 @@ class OfferOrderMapperTest {
         assertThat(dto.quantity()).isEqualTo(3);
         assertThat(dto.unitPrice()).isEqualByComparingTo("5.20");
         assertThat(dto.totalPrice()).isEqualByComparingTo("15.60");
-        assertThat(dto.status()).isEqualTo(OfferOrderStatus.RESERVED);
+        assertThat(dto.status()).isEqualTo(ReservationStatus.RESERVED);
         assertThat(dto.createdAt()).isEqualTo(now);
     }
 
     @Test
     void toEntityMapsBasicFields() {
-        OfferOrderDTO dto = new OfferOrderDTO(
+        ReservationDTO dto = new ReservationDTO(
                 900L, 700L, 10L, "Pao de queijo", 50L, 2,
                 new BigDecimal("5.20"), new BigDecimal("10.40"),
-                OfferOrderStatus.RESERVED, LocalDateTime.now());
+                ReservationStatus.RESERVED, "ABC123", LocalDateTime.now().plusHours(2), null, LocalDateTime.now());
 
-        OfferOrder entity = mapper.toEntity(dto);
+        Reservation entity = mapper.toEntity(dto);
 
         assertThat(entity).isNotNull();
         assertThat(entity.getId()).isEqualTo(900L);
         assertThat(entity.getQuantity()).isEqualTo(2);
-        assertThat(entity.getStatus()).isEqualTo(OfferOrderStatus.RESERVED);
+        assertThat(entity.getStatus()).isEqualTo(ReservationStatus.RESERVED);
     }
 
     @Test

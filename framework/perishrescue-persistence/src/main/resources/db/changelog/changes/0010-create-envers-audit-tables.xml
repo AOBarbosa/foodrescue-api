@@ -92,10 +92,10 @@
         <addPrimaryKey tableName="offers_aud" columnNames="rev, id" constraintName="offers_aud_pkey"/>
     </changeSet>
 
-    <changeSet id="0010-5-create-offer-orders-aud-table" author="andre.barbosa">
-        <createTable tableName="offer_orders_aud">
+    <changeSet id="0010-5-create-reservations-aud-table" author="andre.barbosa">
+        <createTable tableName="reservations_aud">
             <column name="rev" type="INT">
-                <constraints nullable="false" foreignKeyName="fk_offer_orders_aud_rev" references="revinfo(id)"/>
+                <constraints nullable="false" foreignKeyName="fk_reservations_aud_rev" references="revinfo(id)"/>
             </column>
             <column name="revtype" type="SMALLINT"/>
             <column name="id" type="BIGINT">
@@ -104,9 +104,13 @@
             <column name="offer_id" type="BIGINT"/>
             <column name="beneficiary_id" type="BIGINT"/>
             <column name="quantity" type="INT"/>
+            <column name="unit_price" type="NUMERIC(38,2)"/>
+            <column name="pickup_deadline" type="TIMESTAMP(6)"/>
+            <column name="pickup_code" type="VARCHAR(12)"/>
+            <column name="rescued_at" type="TIMESTAMP(6)"/>
             <column name="status" type="VARCHAR(255)"/>
         </createTable>
-        <addPrimaryKey tableName="offer_orders_aud" columnNames="rev, id" constraintName="offer_orders_aud_pkey"/>
+        <addPrimaryKey tableName="reservations_aud" columnNames="rev, id" constraintName="reservations_aud_pkey"/>
     </changeSet>
 
     <changeSet id="0010-6-create-beneficiaries-aud-table" author="andre.barbosa">
@@ -148,9 +152,9 @@
     <changeSet id="0010-8-audit-tables-checks" author="andre.barbosa">
         <sql>
             ALTER TABLE offers_aud ADD CONSTRAINT offers_aud_status_check
-                CHECK (status IN ('ACTIVE', 'CLOSED'));
-            ALTER TABLE offer_orders_aud ADD CONSTRAINT offer_orders_aud_status_check
-                CHECK (status IN ('RESERVED', 'CANCELLED'));
+                CHECK (status IN ('AVAILABLE', 'SOLD_OUT', 'EXPIRED', 'WITHDRAWN'));
+            ALTER TABLE reservations_aud ADD CONSTRAINT reservations_aud_status_check
+                CHECK (status IN ('RESERVED', 'RESCUED', 'EXPIRED', 'CANCELLED'));
             ALTER TABLE ai_recommendations_aud ADD CONSTRAINT ai_recommendations_aud_type_check
                 CHECK (type IN ('DISCOUNT', 'SURPLUS_DESTINATION'));
             ALTER TABLE ai_recommendations_aud ADD CONSTRAINT ai_recommendations_aud_status_check

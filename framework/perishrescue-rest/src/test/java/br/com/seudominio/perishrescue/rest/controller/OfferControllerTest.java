@@ -46,7 +46,7 @@ class OfferControllerTest {
     @Test
     void createUsesAuthenticatedOfferer() {
         CreateOfferRequest request = new CreateOfferRequest(10L, null, null, null);
-        OfferDTO published = offer(700L, OfferStatus.ACTIVE);
+        OfferDTO published = offer(700L, OfferStatus.AVAILABLE);
         when(offerService.createOffer(request, 1L)).thenReturn(published);
 
         ResponseEntity<ApiResponse<OfferDTO>> response = controller.create(request, offerer);
@@ -60,7 +60,7 @@ class OfferControllerTest {
 
     @Test
     void listUsesAuthenticatedOfferer() {
-        List<OfferDTO> offers = List.of(offer(700L, OfferStatus.ACTIVE));
+        List<OfferDTO> offers = List.of(offer(700L, OfferStatus.AVAILABLE));
         when(offerService.findAllForOfferer(1L)).thenReturn(offers);
 
         ResponseEntity<ApiResponse<List<OfferDTO>>> response = controller.list(offerer);
@@ -72,7 +72,7 @@ class OfferControllerTest {
 
     @Test
     void availableDoesNotDependOnTheOfferer() {
-        List<OfferDTO> offers = List.of(offer(700L, OfferStatus.ACTIVE));
+        List<OfferDTO> offers = List.of(offer(700L, OfferStatus.AVAILABLE));
         when(offerService.findOrderable()).thenReturn(offers);
 
         ResponseEntity<ApiResponse<List<OfferDTO>>> response = controller.available();
@@ -84,7 +84,7 @@ class OfferControllerTest {
 
     @Test
     void findByIdUsesAuthenticatedOfferer() {
-        OfferDTO found = offer(700L, OfferStatus.ACTIVE);
+        OfferDTO found = offer(700L, OfferStatus.AVAILABLE);
         when(offerService.findByIdForOfferer(700L, 1L)).thenReturn(found);
 
         ResponseEntity<ApiResponse<OfferDTO>> response = controller.findById(700L, offerer);
@@ -96,13 +96,13 @@ class OfferControllerTest {
 
     @Test
     void closeUsesAuthenticatedOfferer() {
-        OfferDTO closed = offer(700L, OfferStatus.CLOSED);
+        OfferDTO closed = offer(700L, OfferStatus.WITHDRAWN);
         when(offerService.closeOffer(700L, 1L)).thenReturn(closed);
 
         ResponseEntity<ApiResponse<OfferDTO>> response = controller.close(700L, offerer);
 
         assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().data().status()).isEqualTo(OfferStatus.CLOSED);
+        assertThat(response.getBody().data().status()).isEqualTo(OfferStatus.WITHDRAWN);
         assertThat(response.getBody().message()).contains("closed");
         verify(offerService).closeOffer(700L, 1L);
     }
@@ -118,7 +118,7 @@ class OfferControllerTest {
     @Test
     void markAsPriorityUsesAuthenticatedOfferer() {
         OfferDTO prioritized = new OfferDTO(700L, 10L, "Pao de queijo", new BigDecimal("10.00"),
-                new BigDecimal("5.20"), 20, NOW.withHour(22), OfferStatus.ACTIVE, true, NOW);
+                new BigDecimal("5.20"), 20, NOW.withHour(22), OfferStatus.AVAILABLE, true, NOW);
         when(offerService.markAsPriority(700L, 1L)).thenReturn(prioritized);
 
         ResponseEntity<ApiResponse<OfferDTO>> response = controller.markAsPriority(700L, offerer);

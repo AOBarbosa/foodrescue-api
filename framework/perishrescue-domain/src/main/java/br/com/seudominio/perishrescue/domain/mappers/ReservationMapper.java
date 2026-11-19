@@ -1,9 +1,9 @@
 package br.com.seudominio.perishrescue.domain.mappers;
 
-import br.com.seudominio.perishrescue.domain.dtos.OfferOrderDTO;
+import br.com.seudominio.perishrescue.domain.dtos.ReservationDTO;
 import br.com.seudominio.perishrescue.domain.entities.Beneficiary;
 import br.com.seudominio.perishrescue.domain.entities.Offer;
-import br.com.seudominio.perishrescue.domain.entities.OfferOrder;
+import br.com.seudominio.perishrescue.domain.entities.Reservation;
 import br.com.seudominio.perishrescue.domain.entities.PerishableResource;
 
 import org.springframework.stereotype.Component;
@@ -11,28 +11,28 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 
 /**
- * Mapper between {@link OfferOrder} and {@link OfferOrderDTO} (UC09).
+ * Mapper between {@link Reservation} and {@link ReservationDTO} (UC09).
  *
  * @author Andre Barbosa
  * @since 1.0.0
  */
 @Component
-public class OfferOrderMapper implements DTOMapper<OfferOrder, OfferOrderDTO> {
+public class ReservationMapper implements DTOMapper<Reservation, ReservationDTO> {
 
     /**
-     * Converts an {@link OfferOrderDTO} to an {@link OfferOrder}.
+     * Converts an {@link ReservationDTO} to an {@link Reservation}.
      * The offer and beneficiary associations are not resolved here.
      *
      * @param dto the DTO to convert
      * @return the corresponding entity, or {@code null} if {@code dto} is {@code null}
      */
     @Override
-    public OfferOrder toEntity(OfferOrderDTO dto) {
+    public Reservation toEntity(ReservationDTO dto) {
         if (dto == null) {
             return null;
         }
 
-        return OfferOrder.builder()
+        return Reservation.builder()
                 .id(dto.id())
                 .quantity(dto.quantity())
                 .status(dto.status())
@@ -40,13 +40,13 @@ public class OfferOrderMapper implements DTOMapper<OfferOrder, OfferOrderDTO> {
     }
 
     /**
-     * Converts an {@link OfferOrder} to an {@link OfferOrderDTO}.
+     * Converts an {@link Reservation} to an {@link ReservationDTO}.
      *
      * @param order the entity to convert
      * @return the corresponding DTO, or {@code null} if {@code order} is {@code null}
      */
     @Override
-    public OfferOrderDTO toDto(OfferOrder order) {
+    public ReservationDTO toDto(Reservation order) {
         if (order == null) {
             return null;
         }
@@ -55,14 +55,14 @@ public class OfferOrderMapper implements DTOMapper<OfferOrder, OfferOrderDTO> {
         PerishableResource resource = offer == null ? null : offer.getResource();
         Beneficiary beneficiary = order.getBeneficiary();
 
-        BigDecimal unitPrice = (offer != null && offer.getDiscountedPrice() != null)
-                ? offer.getDiscountedPrice().amount()
-                : null;
+        BigDecimal unitPrice = order.getUnitPrice() != null
+                ? order.getUnitPrice().amount()
+                : (offer != null && offer.getDiscountedPrice() != null ? offer.getDiscountedPrice().amount() : null);
         BigDecimal totalPrice = unitPrice != null
                 ? unitPrice.multiply(BigDecimal.valueOf(order.getQuantity()))
                 : null;
 
-        return new OfferOrderDTO(
+        return new ReservationDTO(
                 order.getId(),
                 offer == null ? null : offer.getId(),
                 resource == null ? null : resource.getId(),
@@ -72,6 +72,9 @@ public class OfferOrderMapper implements DTOMapper<OfferOrder, OfferOrderDTO> {
                 unitPrice,
                 totalPrice,
                 order.getStatus(),
+                order.getPickupCode(),
+                order.getPickupDeadline(),
+                order.getRescuedAt(),
                 order.getCreationDate());
     }
 }

@@ -3,7 +3,7 @@ package br.com.seudominio.perishrescue.domain.entities;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import br.com.seudominio.perishrescue.core.money.Money;
-import br.com.seudominio.perishrescue.domain.enums.OfferOrderStatus;
+import br.com.seudominio.perishrescue.domain.enums.ReservationStatus;
 import br.com.seudominio.perishrescue.domain.testsupport.TestResource;
 
 import org.junit.jupiter.api.Test;
@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
-class OfferOrderTest {
+class ReservationTest {
 
     private Offer anyOffer() {
         Offerer offerer = Offerer.builder()
@@ -51,28 +51,28 @@ class OfferOrderTest {
 
     @Test
     void defaultsStatusToReserved() {
-        OfferOrder offerOrder = OfferOrder.builder()
+        Reservation reservation = Reservation.builder()
                 .offer(anyOffer())
                 .beneficiary(anyBeneficiary())
                 .quantity(1)
                 .build();
 
-        assertThat(offerOrder.getStatus()).isEqualTo(OfferOrderStatus.RESERVED);
+        assertThat(reservation.getStatus()).isEqualTo(ReservationStatus.RESERVED);
     }
 
     @Test
-    void buildsOfferOrderWithAllFields() {
+    void buildsReservationWithAllFields() {
         Offer offer = anyOffer();
         Beneficiary beneficiary = anyBeneficiary();
 
-        OfferOrder offerOrder = OfferOrder.builder()
+        Reservation reservation = Reservation.builder()
                 .offer(offer)
                 .beneficiary(beneficiary)
                 .quantity(2)
                 .build();
 
-        assertThat(offerOrder.getOffer()).isEqualTo(offer);
-        assertThat(offerOrder.getBeneficiary()).isEqualTo(beneficiary);
-        assertThat(offerOrder.getQuantity()).isEqualTo(2);
+        assertThat(reservation.getOffer()).isEqualTo(offer);
+        assertThat(reservation.getBeneficiary()).isEqualTo(beneficiary);
+        assertThat(reservation.getQuantity()).isEqualTo(2);
     }
 }

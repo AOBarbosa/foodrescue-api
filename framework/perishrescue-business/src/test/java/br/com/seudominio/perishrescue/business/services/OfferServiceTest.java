@@ -1,5 +1,9 @@
 package br.com.seudominio.perishrescue.business.services;
 
+import br.com.seudominio.perishrescue.business.pricing.PriceCalculator;
+import br.com.seudominio.perishrescue.core.percentage.Percentage;
+import br.com.seudominio.perishrescue.business.event.DomainEventPublisher;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -70,7 +74,7 @@ class OfferServiceTest {
         service = new OfferService(
                 offerRepository, new OfferMapper(), beanValidator, mock(MessageUtils.class),
                 resourceService, new OfferBusinessValidator(beanValidator, timeProvider),
-                timeProvider, "22:00");
+                timeProvider, new PriceCalculator(context -> Percentage.of(0), 90), mock(DomainEventPublisher.class));
 
         offerer = new Offerer();
         offerer.setId(1L);
@@ -84,8 +88,8 @@ class OfferServiceTest {
         resource.setStockQuantity(20);
 
         when(resourceService.findResourceOwnedBy(10L, 1L)).thenReturn(resource);
-        when(offerRepository.findFirstByResourceIdAndStatusAndActiveTrueOrderByCreationDateDesc(
-                10L, OfferStatus.ACTIVE)).thenReturn(Optional.empty());
+        when(offerRepository.findFirstByResourceIdAndStatusInAndActiveTrueOrderByCreationDateDesc(
+                10L, OfferStatus.openStatuses())).thenReturn(Optional.empty());
     }
 
     private Offer activeOffer(Long id, int quantity) {
@@ -112,8 +116,8 @@ class OfferServiceTest {
         assertThat(dto.originalPrice()).isEqualByComparingTo("10.00");
         assertThat(dto.discountedPrice()).isEqualByComparingTo("5.20");
         assertThat(dto.availableQuantity()).isEqualTo(20);
-        assertThat(dto.expiresAt()).isEqualTo(CLOSING);
-        assertThat(dto.status()).isEqualTo(OfferStatus.ACTIVE);
+        assertThat(dto.expiresAt()).isEqualTo(resource.criticalDeadline(NOW));
+        assertThat(dto.status()).isEqualTo(OfferStatus.AVAILABLE);
         assertThat(dto.priority()).isFalse();
     }
 
@@ -146,12 +150,12 @@ class OfferServiceTest {
 
     @Test
     void createOfferRejectsASecondActiveOfferForTheSameResource() {
-        when(offerRepository.findFirstByResourceIdAndStatusAndActiveTrueOrderByCreationDateDesc(
-                10L, OfferStatus.ACTIVE)).thenReturn(Optional.of(activeOffer(700L, 20)));
+        when(offerRepository.findFirstByResourceIdAndStatusInAndActiveTrueOrderByCreationDateDesc(
+                10L, OfferStatus.openStatuses())).thenReturn(Optional.of(activeOffer(700L, 20)));
 
         assertThatThrownBy(() -> service.createOffer(new CreateOfferRequest(10L, null, null, null), 1L))
                 .isInstanceOf(BusinessRuleViolationException.class)
-                .hasMessageContaining("already has an active offer");
+                .hasMessageContaining("already has an open offer");
     }
 
     @Test
@@ -188,22 +192,22 @@ class OfferServiceTest {
         assertThat(dto.get().discountedPrice()).isEqualByComparingTo("5.20");
         assertThat(dto.get().originalPrice()).isEqualByComparingTo("10.00");
         assertThat(dto.get().availableQuantity()).isEqualTo(20);
-        assertThat(dto.get().expiresAt()).isEqualTo(CLOSING);
-        assertThat(dto.get().status()).isEqualTo(OfferStatus.ACTIVE);
+        assertThat(dto.get().expiresAt()).isEqualTo(resource.criticalDeadline(NOW));
+        assertThat(dto.get().status()).isEqualTo(OfferStatus.AVAILABLE);
     }
 
     @Test
     void createFromAcceptedDiscountSupersedesTheStaleOffer() {
         Offer stale = activeOffer(700L, 20);
-        when(offerRepository.findFirstByResourceIdAndStatusAndActiveTrueOrderByCreationDateDesc(
-                10L, OfferStatus.ACTIVE)).thenReturn(Optional.of(stale));
+        when(offerRepository.findFirstByResourceIdAndStatusInAndActiveTrueOrderByCreationDateDesc(
+                10L, OfferStatus.openStatuses())).thenReturn(Optional.of(stale));
 
         Optional<OfferDTO> dto = service.createFromAcceptedDiscount(10L, 1L);
 
-        assertThat(stale.getStatus()).isEqualTo(OfferStatus.CLOSED);
+        assertThat(stale.getStatus()).isEqualTo(OfferStatus.WITHDRAWN);
         assertThat(dto).isPresent();
         assertThat(dto.get().id()).isEqualTo(800L);
-        assertThat(dto.get().status()).isEqualTo(OfferStatus.ACTIVE);
+        assertThat(dto.get().status()).isEqualTo(OfferStatus.AVAILABLE);
     }
 
     @Test
@@ -224,7 +228,7 @@ class OfferServiceTest {
         Offer updated = service.decreaseQuantity(700L, 3);
 
         assertThat(updated.getAvailableQuantity()).isZero();
-        assertThat(updated.getStatus()).isEqualTo(OfferStatus.CLOSED);
+        assertThat(updated.getStatus()).isEqualTo(OfferStatus.SOLD_OUT);
     }
 
     @Test
@@ -235,7 +239,7 @@ class OfferServiceTest {
         Offer updated = service.decreaseQuantity(700L, 4);
 
         assertThat(updated.getAvailableQuantity()).isEqualTo(6);
-        assertThat(updated.getStatus()).isEqualTo(OfferStatus.ACTIVE);
+        assertThat(updated.getStatus()).isEqualTo(OfferStatus.AVAILABLE);
     }
 
     @Test
@@ -252,12 +256,12 @@ class OfferServiceTest {
     @Test
     void decreaseQuantityRejectsAClosedOffer() {
         Offer offer = activeOffer(700L, 5);
-        offer.setStatus(OfferStatus.CLOSED);
+        offer.setStatus(OfferStatus.WITHDRAWN);
         when(offerRepository.findById(700L)).thenReturn(Optional.of(offer));
 
         assertThatThrownBy(() -> service.decreaseQuantity(700L, 1))
                 .isInstanceOf(BusinessRuleViolationException.class)
-                .hasMessageContaining("current status is CLOSED");
+                .hasMessageContaining("current status is WITHDRAWN");
     }
 
     @Test
@@ -284,19 +288,19 @@ class OfferServiceTest {
     void closeOffersForDepletedResourceClosesEveryOpenOffer() {
         Offer first = activeOffer(700L, 5);
         Offer second = activeOffer(701L, 3);
-        when(offerRepository.findByResourceIdAndStatusAndActiveTrue(10L, OfferStatus.ACTIVE))
+        when(offerRepository.findByResourceIdAndStatusInAndActiveTrue(10L, OfferStatus.openStatuses()))
                 .thenReturn(List.of(first, second));
 
         int closed = service.closeOffersForDepletedResource(10L);
 
         assertThat(closed).isEqualTo(2);
-        assertThat(first.getStatus()).isEqualTo(OfferStatus.CLOSED);
-        assertThat(second.getStatus()).isEqualTo(OfferStatus.CLOSED);
+        assertThat(first.getStatus()).isEqualTo(OfferStatus.WITHDRAWN);
+        assertThat(second.getStatus()).isEqualTo(OfferStatus.WITHDRAWN);
     }
 
     @Test
     void closeOffersForDepletedResourceIsSafeWhenThereIsNothingOpen() {
-        when(offerRepository.findByResourceIdAndStatusAndActiveTrue(10L, OfferStatus.ACTIVE))
+        when(offerRepository.findByResourceIdAndStatusInAndActiveTrue(10L, OfferStatus.openStatuses()))
                 .thenReturn(List.of());
 
         assertThat(service.closeOffersForDepletedResource(10L)).isZero();
@@ -308,18 +312,18 @@ class OfferServiceTest {
         Offer offer = activeOffer(700L, 5);
         when(offerRepository.findById(700L)).thenReturn(Optional.of(offer));
 
-        assertThat(service.closeOffer(700L, 1L).status()).isEqualTo(OfferStatus.CLOSED);
+        assertThat(service.closeOffer(700L, 1L).status()).isEqualTo(OfferStatus.WITHDRAWN);
     }
 
     @Test
     void closeOfferRejectsAnAlreadyClosedOffer() {
         Offer offer = activeOffer(700L, 5);
-        offer.setStatus(OfferStatus.CLOSED);
+        offer.setStatus(OfferStatus.WITHDRAWN);
         when(offerRepository.findById(700L)).thenReturn(Optional.of(offer));
 
         assertThatThrownBy(() -> service.closeOffer(700L, 1L))
                 .isInstanceOf(BusinessRuleViolationException.class)
-                .hasMessageContaining("current status is CLOSED");
+                .hasMessageContaining("current status is WITHDRAWN");
     }
 
     @Test
@@ -366,12 +370,12 @@ class OfferServiceTest {
     @Test
     void markAsPriorityRejectsInactiveOffer() {
         Offer offer = activeOffer(700L, 5);
-        offer.setStatus(OfferStatus.CLOSED);
+        offer.setStatus(OfferStatus.WITHDRAWN);
         when(offerRepository.findById(700L)).thenReturn(Optional.of(offer));
 
         assertThatThrownBy(() -> service.markAsPriority(700L, 1L))
                 .isInstanceOf(BusinessRuleViolationException.class)
-                .hasMessageContaining("current status is CLOSED");
+                .hasMessageContaining("current status is WITHDRAWN");
     }
 
     @Test
@@ -386,7 +390,7 @@ class OfferServiceTest {
     @Test
     void markOrPublishPriorityOfferPrioritizesExistingActiveOffer() {
         Offer existing = activeOffer(700L, 5);
-        when(offerRepository.findFirstByResourceIdAndStatusAndActiveTrueOrderByCreationDateDesc(10L, OfferStatus.ACTIVE))
+        when(offerRepository.findFirstByResourceIdAndStatusInAndActiveTrueOrderByCreationDateDesc(10L, OfferStatus.openStatuses()))
                 .thenReturn(Optional.of(existing));
 
         Optional<OfferDTO> result = service.markOrPublishPriorityOfferForResource(10L, 1L);
@@ -399,7 +403,7 @@ class OfferServiceTest {
 
     @Test
     void markOrPublishPriorityOfferPublishesNewPriorityOfferWhenNoneExists() {
-        when(offerRepository.findFirstByResourceIdAndStatusAndActiveTrueOrderByCreationDateDesc(10L, OfferStatus.ACTIVE))
+        when(offerRepository.findFirstByResourceIdAndStatusInAndActiveTrueOrderByCreationDateDesc(10L, OfferStatus.openStatuses()))
                 .thenReturn(Optional.empty());
 
         Optional<OfferDTO> result = service.markOrPublishPriorityOfferForResource(10L, 1L);
@@ -416,5 +420,53 @@ class OfferServiceTest {
 
         assertThat(result).isEmpty();
         verify(offerRepository, never()).save(any(Offer.class));
+    }
+
+    // ---------- E4/E5: expiration and repricing ----------
+
+    @Test
+    void expireOverdueOffersExpiresEveryOpenOfferPastItsDeadline() {
+        Offer available = activeOffer(700L, 3);
+        Offer soldOut = activeOffer(701L, 1);
+        soldOut.takeUnits(1);
+        when(offerRepository.findByStatusInAndExpiresAtLessThanEqualAndActiveTrue(OfferStatus.openStatuses(), NOW))
+                .thenReturn(List.of(available, soldOut));
+
+        assertThat(service.expireOverdueOffers()).isEqualTo(2);
+        assertThat(available.getStatus()).isEqualTo(OfferStatus.EXPIRED);
+        assertThat(soldOut.getStatus()).isEqualTo(OfferStatus.EXPIRED);
+    }
+
+    @Test
+    void repriceLowersAnOfferWhenThePolicyDiscountGrewButNeverRaisesIt() {
+        TimeProvider clock = mock(TimeProvider.class);
+        when(clock.now()).thenReturn(NOW);
+        Validator beanValidator = mock(Validator.class);
+        when(beanValidator.validate(any())).thenReturn(java.util.Collections.emptySet());
+        OfferService seventyOff = new OfferService(
+                offerRepository, new OfferMapper(), beanValidator, mock(MessageUtils.class), resourceService,
+                new OfferBusinessValidator(beanValidator, clock), clock,
+                new PriceCalculator(context -> Percentage.of(70), 90), mock(DomainEventPublisher.class));
+        Offer expensive = activeOffer(700L, 3);   // 5.20, original 10.00 -> 70% off = 3.00
+        Offer cheap = activeOffer(701L, 3);
+        cheap.setDiscountedPrice(Money.of(2.50)); // already below 3.00: stays
+        when(offerRepository.findByStatusInAndExpiresAtGreaterThanAndActiveTrue(OfferStatus.openStatuses(), NOW))
+                .thenReturn(List.of(expensive, cheap));
+
+        assertThat(seventyOff.repriceOpenOffers()).isEqualTo(1);
+        assertThat(expensive.getDiscountedPrice().amount()).isEqualByComparingTo("3.00");
+        assertThat(cheap.getDiscountedPrice().amount()).isEqualByComparingTo("2.50");
+    }
+
+    @Test
+    void returnUnitsReopensASoldOutOfferStillWithinItsDeadline() {
+        Offer offer = activeOffer(700L, 2);
+        offer.takeUnits(2);
+
+        assertThat(service.returnUnits(offer, 2)).isTrue();
+        assertThat(offer.getStatus()).isEqualTo(OfferStatus.AVAILABLE);
+
+        offer.setExpiresAt(NOW.minusMinutes(1));
+        assertThat(service.returnUnits(offer, 1)).isFalse();
     }
 }

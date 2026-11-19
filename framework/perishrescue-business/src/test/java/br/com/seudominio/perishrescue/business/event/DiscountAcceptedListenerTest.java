@@ -46,7 +46,7 @@ class DiscountAcceptedListenerTest {
 
     private OfferDTO offer() {
         return new OfferDTO(700L, 10L, "Pao de queijo", new BigDecimal("10.00"), new BigDecimal("5.20"),
-                20, NOW.withHour(22), OfferStatus.ACTIVE, false, NOW);
+                20, NOW.withHour(22), OfferStatus.AVAILABLE, false, NOW);
     }
 
     @Test

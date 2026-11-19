@@ -112,7 +112,7 @@ public class OfferBuilder {
         offer.setDiscountedPrice(discountedPrice);
         offer.setAvailableQuantity(availableQuantity);
         offer.setExpiresAt(expiresAt);
-        offer.setStatus(status != null ? status : OfferStatus.ACTIVE);
+        offer.setStatus(status != null ? status : OfferStatus.AVAILABLE);
         offer.setPriority(priority);
         return offer;
     }

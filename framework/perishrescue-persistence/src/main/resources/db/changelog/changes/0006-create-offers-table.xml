@@ -42,7 +42,7 @@
     <changeSet id="0006-2-offers-status-check" author="andre.barbosa">
         <sql>
             ALTER TABLE offers ADD CONSTRAINT offers_status_check
-                CHECK (status IN ('ACTIVE', 'CLOSED'));
+                CHECK (status IN ('AVAILABLE', 'SOLD_OUT', 'EXPIRED', 'WITHDRAWN'));
         </sql>
     </changeSet>
 

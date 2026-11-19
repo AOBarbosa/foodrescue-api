@@ -238,6 +238,23 @@ public class ResourceService extends GenericService<PerishableResource, Resource
     }
 
     /**
+     * Takes the units of a rescued reservation out of the resource's stock:
+     * they physically left the offerer. Never drives the stock below zero
+     * (it may have been adjusted by hand in the meantime) and announces a
+     * depleted stock like any other deduction.
+     *
+     * @param resource the reserved resource
+     * @param quantity the rescued units
+     * @return the updated resource
+     */
+    public PerishableResource releaseRescuedUnits(PerishableResource resource, int quantity) {
+        resource.setStockQuantity(Math.max(0, resource.getStockQuantity() - quantity));
+        PerishableResource saved = resourceRepository.save(resource);
+        announceIfDepleted(saved);
+        return saved;
+    }
+
+    /**
      * Applies a discount to a resource owned by the authenticated offerer (UC07).
      *
      * <p>The percentage is always applied to the resource's <em>original</em>

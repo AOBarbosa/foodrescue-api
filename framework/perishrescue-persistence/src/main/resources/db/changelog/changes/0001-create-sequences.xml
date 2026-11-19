@@ -10,7 +10,7 @@
         <createSequence sequenceName="seq_resource" startValue="1" incrementBy="1"/>
         <createSequence sequenceName="seq_sale" startValue="1" incrementBy="1"/>
         <createSequence sequenceName="seq_offer" startValue="1" incrementBy="1"/>
-        <createSequence sequenceName="seq_offer_order" startValue="1" incrementBy="1"/>
+        <createSequence sequenceName="seq_reservation" startValue="1" incrementBy="1"/>
         <createSequence sequenceName="seq_beneficiary" startValue="1" incrementBy="1"/>
         <createSequence sequenceName="seq_ai_recommendation" startValue="1" incrementBy="1"/>
         <createSequence sequenceName="seq_revinfo" startValue="1" incrementBy="1"/>
