@@ -4,18 +4,48 @@ Foundation laid by issue #1. This document describes the conventions every
 UC issue (#2–#13) builds on — read it before adding a new entity, service,
 repository or endpoint.
 
+> **Phase 2 (in progress):** the code base is being refactored into the
+> **PerishRescue Framework**, with FoodRescue as its first instance. The
+> module layout below reflects step E1 (modules and packages only, no
+> behavior change); the kernel abstractions (hot spots, lifecycle state
+> machine) land in the next steps.
+
 ## Modules and what lives where
+
+```
+framework/            the PerishRescue kernel (no instance-specific code may import from instances/)
+  perishrescue-core
+  perishrescue-domain
+  perishrescue-persistence
+  perishrescue-business
+  perishrescue-rest
+instances/
+  foodrescue          instance 1: the runnable Spring Boot application
+```
 
 | Module | Package | Contains |
 |---|---|---|
-| `core` | `br.com.seudominio.foodrescue.core` | Framework-light building blocks with no domain knowledge: `Money`/`Percentage` value objects, `TimeProvider`, `MessageUtils` (i18n), the `core.validation` framework (`Validator<T>`, `AbstractValidator<T>`, `BusinessOperation`, `ValidationError`, `ValidationException`). |
-| `domain` | `br.com.seudominio.foodrescue.domain` | JPA entities (`entities`), their builders (`builders`), enums (`enums`), DTOs (`dtos`), entity↔DTO mappers (`mappers`), JPA converters for `core` value objects (`converter`), the domain exception hierarchy (`exception`). |
-| `persistence` | `br.com.seudominio.foodrescue.persistence` | `GenericRepository<T>` and one concrete Spring Data repository per aggregate (`repositories`). |
-| `business` | `br.com.seudominio.foodrescue.business` | `GenericService<E,D>` and one concrete service per aggregate (`services`), business validators (`validation`), cross-cutting error codes (`helpers.MessageCode`), shared beans like `PasswordEncoder` (`config`). |
-| `rest` | `br.com.seudominio.foodrescue.rest` | Controllers, the `ApiResponse`/`ApiError`/`ApiSubError` response envelope (`dtos`), JWT security (`security`), the global exception handler (`exception`), Swagger config (`config`). |
+| `perishrescue-core` | `br.com.seudominio.perishrescue.core` | Framework-light building blocks with no domain knowledge: `Money`/`Percentage` value objects, `TimeProvider`, `MessageUtils` (i18n), the `core.validation` framework (`Validator<T>`, `AbstractValidator<T>`, `BusinessOperation`, `ValidationError`, `ValidationException`). |
+| `perishrescue-domain` | `br.com.seudominio.perishrescue.domain` | JPA entities (`entities`), their builders (`builders`), enums (`enums`), DTOs (`dtos`), entity↔DTO mappers (`mappers`), JPA converters for `core` value objects (`converter`), the domain exception hierarchy (`exception`). |
+| `perishrescue-persistence` | `br.com.seudominio.perishrescue.persistence` | `GenericRepository<T>` and one concrete Spring Data repository per aggregate (`repositories`), Liquibase changelogs. |
+| `perishrescue-business` | `br.com.seudominio.perishrescue.business` | `GenericService<E,D>` and one concrete service per aggregate (`services`), business validators (`validation`), cross-cutting error codes (`helpers.MessageCode`), shared beans like `PasswordEncoder` (`config`). |
+| `perishrescue-rest` | `br.com.seudominio.perishrescue.rest` | Controllers, the `ApiResponse`/`ApiError`/`ApiSubError` response envelope (`dtos`), JWT security (`security`), the global exception handler (`exception`), Swagger config (`config`), and `@EnablePerishRescue` (`boot`). A plain library jar: it is not runnable on its own. |
+| `foodrescue` | `br.com.seudominio.foodrescue` | `FoodRescueApplication` (`@SpringBootApplication` + `@EnablePerishRescue`), `application.properties`, the executable jar. |
 
-Dependency direction: `rest → business → persistence → domain → core`. A
-module never depends on one above it in this list.
+Dependency direction: `foodrescue → rest → business → persistence → domain → core`.
+A module never depends on one above it in this list.
+
+### How an instance plugs the framework in
+
+The instance's main class carries `@EnablePerishRescue`, which imports
+`PerishRescueConfiguration`. That class component-scans
+`br.com.seudominio.perishrescue`, registers the same package as an
+auto-configuration package (so Spring Boot finds the framework's JPA entities
+and repositories **in addition to** the instance's own package) and enables
+scheduling. Don't add `@EntityScan`/`@EnableJpaRepositories` to an instance:
+they replace the scanned packages instead of adding to them.
+`FoodRescueApplicationTest` boots the whole context against H2 and fails if
+this wiring breaks.
 
 ## Entities
 
@@ -37,7 +67,7 @@ Each entity is `@Audited` (Hibernate Envers): every insert/update/delete is
 recorded in a `<table>_aud` row linked to `revinfo`. If you add a new
 `@Audited` entity, you must also add its `_aud` table and sequence to a
 Liquibase changeset — Envers does **not** create it automatically under
-`ddl-auto=validate` (see `persistence/src/main/resources/db/changelog/changes/0010-*`
+`ddl-auto=validate` (see `framework/perishrescue-persistence/src/main/resources/db/changelog/changes/0010-*`
 for the pattern, and the commit history for how the exact column set was
 derived from a real Hibernate schema dump rather than guessed).
 
@@ -154,7 +184,7 @@ A concrete validator (e.g. `ConsumerBusinessValidator`) extends
 - **Documentation**: every controller/DTO carries `@Tag`/`@Operation`/
   bean-validation annotations; Swagger UI authenticates via the `bearerAuth`
   JWT scheme configured in `rest.config.OpenApiConfig`.
-- **Locale**: `FoodRescueApiApplication.main()` forces `Locale.setDefault(Locale.US)`
+- **Locale**: `FoodRescueApplication.main()` (in the instance) forces `Locale.setDefault(Locale.US)`
   so bean-validation messages stay in English regardless of the host
   machine's locale — don't remove it.
 

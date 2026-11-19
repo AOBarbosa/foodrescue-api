@@ -12,19 +12,20 @@
     </parent>
 
     <groupId>br.com.seudominio</groupId>
-    <artifactId>foodrescue-ai</artifactId>
+    <artifactId>perishrescue</artifactId>
     <version>${revision}</version>
     <packaging>pom</packaging>
 
-    <name>foodrescue-ai</name>
-    <description>FoodRescue AI - backend multi-module project</description>
+    <name>perishrescue</name>
+    <description>PerishRescue Framework - framework OO para gestao, liquidacao e resgate de recursos pereciveis, e suas instancias</description>
 
     <modules>
-        <module>domain</module>
-        <module>core</module>
-        <module>persistence</module>
-        <module>business</module>
-        <module>rest</module>
+        <module>framework/perishrescue-domain</module>
+        <module>framework/perishrescue-core</module>
+        <module>framework/perishrescue-persistence</module>
+        <module>framework/perishrescue-business</module>
+        <module>framework/perishrescue-rest</module>
+        <module>instances/foodrescue</module>
     </modules>
 
     <properties>
