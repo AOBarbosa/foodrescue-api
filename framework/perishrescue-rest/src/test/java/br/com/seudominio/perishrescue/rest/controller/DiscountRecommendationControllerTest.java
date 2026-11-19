@@ -33,7 +33,7 @@ class DiscountRecommendationControllerTest {
     void setUp() {
         aiRecommendationService = mock(AiRecommendationService.class);
         controller = new DiscountRecommendationController(aiRecommendationService);
-        principal = new AuthenticatedPrincipal(1L, UserRole.ESTABLISHMENT);
+        principal = new AuthenticatedPrincipal(1L, UserRole.OFFERER);
     }
 
     private DiscountRecommendationDTO withStatus(RecommendationStatus status) {
@@ -44,7 +44,7 @@ class DiscountRecommendationControllerTest {
     }
 
     @Test
-    void recommendUsesAuthenticatedEstablishment() {
+    void recommendUsesAuthenticatedOfferer() {
         DiscountRecommendationDTO recommendation = withStatus(RecommendationStatus.PENDING);
         when(aiRecommendationService.recommendDiscount(10L, 1L)).thenReturn(recommendation);
 
@@ -58,27 +58,27 @@ class DiscountRecommendationControllerTest {
     }
 
     @Test
-    void historyUsesAuthenticatedEstablishment() {
+    void historyUsesAuthenticatedOfferer() {
         List<DiscountRecommendationDTO> history = List.of(withStatus(RecommendationStatus.ACCEPTED));
-        when(aiRecommendationService.findHistoryForProduct(10L, 1L)).thenReturn(history);
+        when(aiRecommendationService.findHistoryForResource(10L, 1L)).thenReturn(history);
 
         ResponseEntity<ApiResponse<List<DiscountRecommendationDTO>>> response = controller.history(10L, principal);
 
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().data()).isSameAs(history);
-        verify(aiRecommendationService).findHistoryForProduct(10L, 1L);
+        verify(aiRecommendationService).findHistoryForResource(10L, 1L);
     }
 
     @Test
-    void pendingUsesAuthenticatedEstablishment() {
+    void pendingUsesAuthenticatedOfferer() {
         List<DiscountRecommendationDTO> pending = List.of(withStatus(RecommendationStatus.PENDING));
-        when(aiRecommendationService.findPendingForEstablishment(1L)).thenReturn(pending);
+        when(aiRecommendationService.findPendingForOfferer(1L)).thenReturn(pending);
 
         ResponseEntity<ApiResponse<List<DiscountRecommendationDTO>>> response = controller.pending(principal);
 
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().data()).isSameAs(pending);
-        verify(aiRecommendationService).findPendingForEstablishment(1L);
+        verify(aiRecommendationService).findPendingForOfferer(1L);
     }
 
     @Test

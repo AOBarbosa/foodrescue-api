@@ -8,7 +8,7 @@ import static org.mockito.Mockito.when;
 
 import br.com.seudominio.perishrescue.core.validation.BusinessOperation;
 import br.com.seudominio.perishrescue.core.validation.exception.ValidationException;
-import br.com.seudominio.perishrescue.domain.entities.Consumer;
+import br.com.seudominio.perishrescue.domain.entities.Beneficiary;
 import br.com.seudominio.perishrescue.domain.entities.Offer;
 import br.com.seudominio.perishrescue.domain.entities.OfferOrder;
 import br.com.seudominio.perishrescue.domain.enums.OfferOrderStatus;
@@ -34,7 +34,7 @@ class OfferOrderBusinessValidatorTest {
     private OfferOrder validOrder() {
         return OfferOrder.builder()
                 .offer(new Offer())
-                .consumer(new Consumer())
+                .beneficiary(new Beneficiary())
                 .quantity(2)
                 .status(OfferOrderStatus.RESERVED)
                 .build();
@@ -63,13 +63,13 @@ class OfferOrderBusinessValidatorTest {
     }
 
     @Test
-    void rejectsOrderWithoutConsumer() {
+    void rejectsOrderWithoutBeneficiary() {
         OfferOrder order = validOrder();
-        order.setConsumer(null);
+        order.setBeneficiary(null);
 
         assertThatThrownBy(() -> validator.validateOperation(order, BusinessOperation.CREATE))
                 .isInstanceOf(ValidationException.class)
-                .hasMessageContaining("offerOrder must reference a consumer");
+                .hasMessageContaining("offerOrder must reference a beneficiary");
     }
 
     @Test

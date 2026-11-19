@@ -14,8 +14,8 @@
             <column name="id" type="BIGINT">
                 <constraints primaryKey="true" primaryKeyName="demand_forecasts_pkey" nullable="false"/>
             </column>
-            <column name="product_id" type="BIGINT">
-                <constraints nullable="false" foreignKeyName="fk_demand_forecasts_product" references="products(id)"/>
+            <column name="resource_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_demand_forecasts_resource" references="resources(id)"/>
             </column>
             <column name="predicted_quantity" type="INT">
                 <constraints nullable="false"/>
@@ -45,8 +45,8 @@
             </column>
             <column name="modification_date" type="TIMESTAMP(6)"/>
         </createTable>
-        <createIndex tableName="demand_forecasts" indexName="idx_demand_forecasts_product_calculated_at">
-            <column name="product_id"/>
+        <createIndex tableName="demand_forecasts" indexName="idx_demand_forecasts_resource_calculated_at">
+            <column name="resource_id"/>
             <column name="calculated_at"/>
         </createIndex>
     </changeSet>
@@ -60,7 +60,7 @@
             <column name="id" type="BIGINT">
                 <constraints nullable="false"/>
             </column>
-            <column name="product_id" type="BIGINT"/>
+            <column name="resource_id" type="BIGINT"/>
             <column name="predicted_quantity" type="INT"/>
             <column name="stock_quantity" type="INT"/>
             <column name="confidence" type="VARCHAR(255)"/>

@@ -4,11 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import br.com.seudominio.perishrescue.core.money.Money;
 import br.com.seudominio.perishrescue.domain.dtos.OfferOrderDTO;
-import br.com.seudominio.perishrescue.domain.entities.Consumer;
+import br.com.seudominio.perishrescue.domain.entities.Beneficiary;
 import br.com.seudominio.perishrescue.domain.entities.Offer;
 import br.com.seudominio.perishrescue.domain.entities.OfferOrder;
-import br.com.seudominio.perishrescue.domain.entities.Product;
+import br.com.seudominio.perishrescue.domain.entities.PerishableResource;
 import br.com.seudominio.perishrescue.domain.enums.OfferOrderStatus;
+import br.com.seudominio.perishrescue.domain.testsupport.TestResource;
 
 import org.junit.jupiter.api.Test;
 
@@ -23,28 +24,29 @@ class OfferOrderMapperTest {
     void toDtoMapsAllFieldsAndComputesTotalPrice() {
         LocalDateTime now = LocalDateTime.of(2026, 9, 14, 15, 0);
 
-        Product product = Product.builder()
+        PerishableResource resource = TestResource.builder()
                 .id(10L)
                 .name("Pao de queijo")
                 .build();
 
         Offer offer = Offer.builder()
                 .id(700L)
-                .product(product)
+                .resource(resource)
                 .discountedPrice(Money.of(new BigDecimal("5.20")))
                 .availableQuantity(5)
                 .expiresAt(now.plusHours(3))
                 .build();
 
-        Consumer consumer = Consumer.builder()
+        Beneficiary beneficiary = Beneficiary.builder()
                 .id(50L)
                 .name("Maria")
+                .document("52998224725")
                 .build();
 
         OfferOrder order = OfferOrder.builder()
                 .id(900L)
                 .offer(offer)
-                .consumer(consumer)
+                .beneficiary(beneficiary)
                 .quantity(3)
                 .status(OfferOrderStatus.RESERVED)
                 .build();
@@ -55,9 +57,9 @@ class OfferOrderMapperTest {
         assertThat(dto).isNotNull();
         assertThat(dto.id()).isEqualTo(900L);
         assertThat(dto.offerId()).isEqualTo(700L);
-        assertThat(dto.productId()).isEqualTo(10L);
-        assertThat(dto.productName()).isEqualTo("Pao de queijo");
-        assertThat(dto.consumerId()).isEqualTo(50L);
+        assertThat(dto.resourceId()).isEqualTo(10L);
+        assertThat(dto.resourceName()).isEqualTo("Pao de queijo");
+        assertThat(dto.beneficiaryId()).isEqualTo(50L);
         assertThat(dto.quantity()).isEqualTo(3);
         assertThat(dto.unitPrice()).isEqualByComparingTo("5.20");
         assertThat(dto.totalPrice()).isEqualByComparingTo("15.60");

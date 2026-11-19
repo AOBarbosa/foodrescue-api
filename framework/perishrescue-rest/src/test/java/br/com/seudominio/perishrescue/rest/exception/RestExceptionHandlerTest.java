@@ -7,7 +7,7 @@ import static org.mockito.Mockito.when;
 import br.com.seudominio.perishrescue.business.helpers.MessageCode;
 import br.com.seudominio.perishrescue.core.validation.ValidationError;
 import br.com.seudominio.perishrescue.core.validation.exception.ValidationException;
-import br.com.seudominio.perishrescue.domain.entities.Consumer;
+import br.com.seudominio.perishrescue.domain.entities.Beneficiary;
 import br.com.seudominio.perishrescue.domain.entities.Offer;
 import br.com.seudominio.perishrescue.domain.exception.BusinessRuleViolationException;
 import br.com.seudominio.perishrescue.domain.exception.DuplicateEntityException;
@@ -31,14 +31,14 @@ class RestExceptionHandlerTest {
     private HttpServletRequest anyRequest() {
         HttpServletRequest request = mock(HttpServletRequest.class);
         when(request.getMethod()).thenReturn("POST");
-        when(request.getRequestURI()).thenReturn("/consumers");
+        when(request.getRequestURI()).thenReturn("/beneficiaries");
         return request;
     }
 
     @Test
     void mapsEntityNotFoundTo404() {
         ResponseEntity<ApiResponse<Object>> response =
-                handler.handleEntityNotFound(new EntityNotFoundException(Consumer.class, 1L));
+                handler.handleEntityNotFound(new EntityNotFoundException(Beneficiary.class, 1L));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(response.getBody().code()).isEqualTo(MessageCode.ENTITY_NOT_FOUND);

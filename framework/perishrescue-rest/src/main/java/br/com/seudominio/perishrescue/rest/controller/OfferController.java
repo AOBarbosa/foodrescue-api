@@ -27,7 +27,7 @@ import java.util.List;
  * @author Hugo Jose
  * @since 1.0.0
  */
-@Tag(name = "Offers", description = "Surplus published to consumers, created manually or by an accepted discount")
+@Tag(name = "Offers", description = "Surplus published to beneficiaries, created manually or by an accepted discount")
 @RestController
 @RequestMapping("/offers")
 public class OfferController {
@@ -44,13 +44,13 @@ public class OfferController {
     }
 
     /**
-     * Publishes an offer manually. Only the product is required.
+     * Publishes an offer manually. Only the resource is required.
      *
      * @param request   the offer data
      * @param principal the authenticated principal
      * @return the published offer
      */
-    @PreAuthorize("hasRole('ROLE_ESTABLISHMENT')")
+    @PreAuthorize("hasRole('ROLE_OFFERER')")
     @Operation(summary = "Publish an offer of surplus manually")
     @PostMapping
     public ResponseEntity<ApiResponse<OfferDTO>> create(
@@ -64,29 +64,29 @@ public class OfferController {
     }
 
     /**
-     * Lists the authenticated establishment's offers, newest first.
+     * Lists the authenticated offerer's offers, newest first.
      *
      * @param principal the authenticated principal
-     * @return the establishment's offers
+     * @return the offerer's offers
      */
-    @PreAuthorize("hasRole('ROLE_ESTABLISHMENT')")
-    @Operation(summary = "List the offers of the establishment")
+    @PreAuthorize("hasRole('ROLE_OFFERER')")
+    @Operation(summary = "List the offers of the offerer")
     @GetMapping
     public ResponseEntity<ApiResponse<List<OfferDTO>>> list(
             @AuthenticationPrincipal AuthenticatedPrincipal principal) {
         return ResponseEntity.ok(new ApiResponse<>(
-                offerService.findAllForEstablishment(principal.id()),
+                offerService.findAllForOfferer(principal.id()),
                 "Offers retrieved successfully",
                 true,
                 null));
     }
 
     /**
-     * Lists the offers a consumer can still order.
+     * Lists the offers a beneficiary can still order.
      *
      * @return the orderable offers
      */
-    @PreAuthorize("hasRole('ROLE_CONSUMER')")
+    @PreAuthorize("hasRole('ROLE_BENEFICIARY')")
     @Operation(summary = "List the offers available to order")
     @GetMapping("/available")
     public ResponseEntity<ApiResponse<List<OfferDTO>>> available() {
@@ -98,20 +98,20 @@ public class OfferController {
     }
 
     /**
-     * Fetches one offer of the authenticated establishment.
+     * Fetches one offer of the authenticated offerer.
      *
      * @param id        the offer id
      * @param principal the authenticated principal
      * @return the offer
      */
-    @PreAuthorize("hasRole('ROLE_ESTABLISHMENT')")
-    @Operation(summary = "Get an offer of the establishment")
+    @PreAuthorize("hasRole('ROLE_OFFERER')")
+    @Operation(summary = "Get an offer of the offerer")
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<OfferDTO>> findById(
             @PathVariable Long id,
             @AuthenticationPrincipal AuthenticatedPrincipal principal) {
         return ResponseEntity.ok(new ApiResponse<>(
-                offerService.findByIdForEstablishment(id, principal.id()),
+                offerService.findByIdForOfferer(id, principal.id()),
                 "Offer retrieved successfully",
                 true,
                 null));
@@ -124,7 +124,7 @@ public class OfferController {
      * @param principal the authenticated principal
      * @return the prioritized offer
      */
-    @PreAuthorize("hasRole('ROLE_ESTABLISHMENT')")
+    @PreAuthorize("hasRole('ROLE_OFFERER')")
     @Operation(summary = "Mark an offer as priority/featured")
     @PatchMapping("/{id}/priority")
     public ResponseEntity<ApiResponse<OfferDTO>> markAsPriority(
@@ -143,7 +143,7 @@ public class OfferController {
      * @param principal the authenticated principal
      * @return the closed offer
      */
-    @PreAuthorize("hasRole('ROLE_ESTABLISHMENT')")
+    @PreAuthorize("hasRole('ROLE_OFFERER')")
     @Operation(summary = "Close an active offer")
     @PatchMapping("/{id}/close")
     public ResponseEntity<ApiResponse<OfferDTO>> close(

@@ -7,21 +7,21 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * A discount recommendation and the state of the product it refers to (UC07).
+ * A discount recommendation and the state of the resource it refers to (UC07).
  *
  * @param id                   the recommendation's identifier
- * @param productId            the recommended product's identifier
- * @param productName          the recommended product's name
+ * @param resourceId            the recommended resource's identifier
+ * @param resourceName          the recommended resource's name
  * @param type                 the kind of recommendation
  * @param suggestedPercentage  the percentage this recommendation stands for; once adjusted, the
- *                             establishment's own value
+ *                             offerer's own value
  * @param status               the lifecycle status of the recommendation
- * @param originalPrice        the product's list price, which the discount is applied to
- * @param currentPrice         the product's price right now
+ * @param originalPrice        the resource's list price, which the discount is applied to
+ * @param currentPrice         the resource's price right now
  * @param priceWithDiscount    what the price becomes (or became) with this percentage applied
  * @param createdAt            the moment the recommendation was generated
  * @param expiresAt            the moment it stops accepting an answer, or {@code null} if unknown
- * @param respondedAt          the moment the establishment answered, or {@code null} while pending
+ * @param respondedAt          the moment the offerer answered, or {@code null} while pending
  * @param previousRecommendationId the recommendation this one follows, or {@code null} for the first of a chain (UC10)
  *
  * @author Hugo Jose
@@ -29,8 +29,8 @@ import java.time.LocalDateTime;
  */
 public record DiscountRecommendationDTO(
         Long id,
-        Long productId,
-        String productName,
+        Long resourceId,
+        String resourceName,
         RecommendationType type,
         BigDecimal suggestedPercentage,
         RecommendationStatus status,

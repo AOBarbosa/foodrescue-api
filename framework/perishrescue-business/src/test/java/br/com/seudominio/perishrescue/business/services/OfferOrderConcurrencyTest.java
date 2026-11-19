@@ -8,20 +8,20 @@ import br.com.seudominio.perishrescue.core.money.Money;
 import br.com.seudominio.perishrescue.core.time.SystemTimeProvider;
 import br.com.seudominio.perishrescue.core.utils.MessageUtils;
 import br.com.seudominio.perishrescue.domain.dtos.ReserveOfferRequest;
-import br.com.seudominio.perishrescue.domain.entities.Consumer;
-import br.com.seudominio.perishrescue.domain.entities.Establishment;
+import br.com.seudominio.perishrescue.domain.entities.Beneficiary;
+import br.com.seudominio.perishrescue.domain.entities.Offerer;
 import br.com.seudominio.perishrescue.domain.entities.Offer;
-import br.com.seudominio.perishrescue.domain.entities.Product;
-import br.com.seudominio.perishrescue.domain.enums.EstablishmentCategory;
+import br.com.seudominio.perishrescue.domain.entities.PerishableResource;
 import br.com.seudominio.perishrescue.domain.enums.OfferStatus;
 import br.com.seudominio.perishrescue.domain.mappers.OfferMapper;
 import br.com.seudominio.perishrescue.domain.mappers.OfferOrderMapper;
-import br.com.seudominio.perishrescue.domain.mappers.ProductMapper;
-import br.com.seudominio.perishrescue.persistence.repositories.ConsumerRepository;
-import br.com.seudominio.perishrescue.persistence.repositories.EstablishmentRepository;
+import br.com.seudominio.perishrescue.domain.mappers.ResourceMapper;
+import br.com.seudominio.perishrescue.persistence.repositories.BeneficiaryRepository;
+import br.com.seudominio.perishrescue.persistence.repositories.OffererRepository;
 import br.com.seudominio.perishrescue.persistence.repositories.OfferOrderRepository;
 import br.com.seudominio.perishrescue.persistence.repositories.OfferRepository;
-import br.com.seudominio.perishrescue.persistence.repositories.ProductRepository;
+import br.com.seudominio.perishrescue.persistence.repositories.ResourceRepository;
+import br.com.seudominio.perishrescue.domain.testsupport.TestResource;
 
 import org.aopalliance.intercept.MethodInterceptor;
 import org.junit.jupiter.api.Test;
@@ -40,6 +40,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -71,14 +72,14 @@ class OfferOrderConcurrencyTest {
 
     @SpringBootConfiguration
     @EnableAutoConfiguration
-    @EntityScan(basePackageClasses = Offer.class)
+    @EntityScan(basePackageClasses = {Offer.class, TestResource.class})
     @EnableJpaRepositories(basePackageClasses = OfferRepository.class)
     @Import({
             OfferOrderService.class,
             OfferService.class,
             OfferOrderMapper.class,
             OfferMapper.class,
-            ProductMapper.class,
+            ResourceMapper.class,
             OfferOrderBusinessValidator.class,
             OfferBusinessValidator.class,
             SystemTimeProvider.class
@@ -91,8 +92,8 @@ class OfferOrderConcurrencyTest {
         }
 
         @Bean
-        ProductService productService() {
-            return Mockito.mock(ProductService.class);
+        ResourceService resourceService() {
+            return Mockito.mock(ResourceService.class);
         }
 
         @Bean
@@ -122,13 +123,13 @@ class OfferOrderConcurrencyTest {
     }
 
     @Autowired
-    private EstablishmentRepository establishmentRepository;
+    private OffererRepository offererRepository;
 
     @Autowired
-    private ProductRepository productRepository;
+    private ResourceRepository resourceRepository;
 
     @Autowired
-    private ConsumerRepository consumerRepository;
+    private BeneficiaryRepository beneficiaryRepository;
 
     @Autowired
     private OfferRepository offerRepository;
@@ -141,17 +142,18 @@ class OfferOrderConcurrencyTest {
 
     @Test
     void twoSimultaneousReservationsDoNotExceedAvailableQuantityAndRaiseOptimisticLockConflict() throws Exception {
-        Establishment establishment = establishmentRepository.save(Establishment.builder()
+        Offerer offerer = offererRepository.save(Offerer.builder()
                 .name("Padaria Central")
                 .cnpj("12345678000199")
                 .address("Rua A, 100")
-                .category(EstablishmentCategory.BAKERY)
+                .category("BAKERY")
+                .businessHours(LocalTime.of(7, 0), LocalTime.of(22, 0))
                 .email("padaria@central.com")
                 .passwordHash("hash")
                 .build());
 
-        Product product = productRepository.save(Product.builder()
-                .establishment(establishment)
+        PerishableResource resource = resourceRepository.save(TestResource.builder()
+                .offerer(offerer)
                 .name("Cesta de paes")
                 .category("PADARIA")
                 .originalPrice(Money.of(20.00))
@@ -159,20 +161,22 @@ class OfferOrderConcurrencyTest {
                 .stockQuantity(10)
                 .build());
 
-        Consumer firstConsumer = consumerRepository.save(Consumer.builder()
+        Beneficiary firstBeneficiary = beneficiaryRepository.save(Beneficiary.builder()
                 .name("Alice")
+                .document("52998224725")
                 .email("alice@example.com")
                 .passwordHash("hash")
                 .build());
 
-        Consumer secondConsumer = consumerRepository.save(Consumer.builder()
+        Beneficiary secondBeneficiary = beneficiaryRepository.save(Beneficiary.builder()
                 .name("Bruno")
+                .document("11144477735")
                 .email("bruno@example.com")
                 .passwordHash("hash")
                 .build());
 
         Offer offer = offerRepository.save(Offer.builder()
-                .product(product)
+                .resource(resource)
                 .discountedPrice(Money.of(10.00))
                 .availableQuantity(2)
                 .expiresAt(LocalDateTime.now().plusHours(3))
@@ -183,8 +187,8 @@ class OfferOrderConcurrencyTest {
         ExecutorService executor = Executors.newFixedThreadPool(2);
         try {
             List<Callable< Object>> tasks = List.of(
-                    () -> offerOrderService.reserve(new ReserveOfferRequest(offer.getId(), 2), firstConsumer.getId()),
-                    () -> offerOrderService.reserve(new ReserveOfferRequest(offer.getId(), 2), secondConsumer.getId())
+                    () -> offerOrderService.reserve(new ReserveOfferRequest(offer.getId(), 2), firstBeneficiary.getId()),
+                    () -> offerOrderService.reserve(new ReserveOfferRequest(offer.getId(), 2), secondBeneficiary.getId())
             );
 
             List<Future<Object>> futures = executor.invokeAll(tasks);

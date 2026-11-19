@@ -15,13 +15,14 @@ import br.com.seudominio.perishrescue.core.time.TimeProvider;
 import br.com.seudominio.perishrescue.domain.dtos.PeriodDTO;
 import br.com.seudominio.perishrescue.domain.dtos.WasteAndSavingsIndicatorsDTO;
 import br.com.seudominio.perishrescue.domain.entities.AiRecommendation;
-import br.com.seudominio.perishrescue.domain.entities.Product;
+import br.com.seudominio.perishrescue.domain.entities.PerishableResource;
 import br.com.seudominio.perishrescue.domain.entities.Sale;
 import br.com.seudominio.perishrescue.domain.enums.IndicatorPeriod;
 import br.com.seudominio.perishrescue.domain.enums.RecommendationStatus;
 import br.com.seudominio.perishrescue.domain.exception.BusinessRuleViolationException;
 import br.com.seudominio.perishrescue.persistence.repositories.AiRecommendationRepository;
 import br.com.seudominio.perishrescue.persistence.repositories.SaleRepository;
+import br.com.seudominio.perishrescue.domain.testsupport.TestResource;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,7 +37,7 @@ import java.util.List;
 class IndicatorsServiceTest {
 
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 9, 15, 12, 0, 0);
-    private static final Long ESTABLISHMENT_ID = 1L;
+    private static final Long OFFERER_ID = 1L;
 
     private SaleRepository saleRepository;
     private AiRecommendationRepository recommendationRepository;
@@ -55,18 +56,18 @@ class IndicatorsServiceTest {
         service = new IndicatorsService(saleRepository, recommendationRepository, aggregator, timeProvider);
     }
 
-    private Product createProduct(BigDecimal originalPrice) {
-        Product product = new Product();
-        product.setId(10L);
-        product.setName("Pão");
-        product.setOriginalPrice(Money.of(originalPrice));
-        product.setCurrentPrice(Money.of(originalPrice));
-        return product;
+    private PerishableResource createResource(BigDecimal originalPrice) {
+        PerishableResource resource = new TestResource();
+        resource.setId(10L);
+        resource.setName("Pão");
+        resource.setOriginalPrice(Money.of(originalPrice));
+        resource.setCurrentPrice(Money.of(originalPrice));
+        return resource;
     }
 
-    private Sale createSale(Product product, int quantity, BigDecimal unitPrice) {
+    private Sale createSale(PerishableResource resource, int quantity, BigDecimal unitPrice) {
         Sale sale = new Sale();
-        sale.setProduct(product);
+        sale.setResource(resource);
         sale.setQuantity(quantity);
         sale.setUnitPrice(Money.of(unitPrice));
         sale.setSoldAt(NOW);
@@ -75,12 +76,12 @@ class IndicatorsServiceTest {
 
     @Test
     void getIndicatorsWithDefaultPeriodQueriesCurrentMonth() {
-        when(saleRepository.findByEstablishmentAndPeriod(eq(ESTABLISHMENT_ID), any(), any()))
+        when(saleRepository.findByOffererAndPeriod(eq(OFFERER_ID), any(), any()))
                 .thenReturn(Collections.emptyList());
-        when(recommendationRepository.findRespondedByEstablishmentAndPeriod(eq(ESTABLISHMENT_ID), any(), any()))
+        when(recommendationRepository.findRespondedByOffererAndPeriod(eq(OFFERER_ID), any(), any()))
                 .thenReturn(Collections.emptyList());
 
-        WasteAndSavingsIndicatorsDTO dto = service.getIndicators(ESTABLISHMENT_ID, null, null, null, false);
+        WasteAndSavingsIndicatorsDTO dto = service.getIndicators(OFFERER_ID, null, null, null, false);
 
         assertThat(dto).isNotNull();
         assertThat(dto.period().startDate()).isEqualTo(LocalDate.of(2026, 9, 1));
@@ -90,7 +91,7 @@ class IndicatorsServiceTest {
 
         ArgumentCaptor<LocalDateTime> startCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
         ArgumentCaptor<LocalDateTime> endCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
-        verify(saleRepository).findByEstablishmentAndPeriod(eq(ESTABLISHMENT_ID), startCaptor.capture(), endCaptor.capture());
+        verify(saleRepository).findByOffererAndPeriod(eq(OFFERER_ID), startCaptor.capture(), endCaptor.capture());
 
         assertThat(startCaptor.getValue()).isEqualTo(LocalDate.of(2026, 9, 1).atStartOfDay());
         assertThat(endCaptor.getValue()).isEqualTo(LocalDate.of(2026, 9, 16).atStartOfDay());
@@ -98,12 +99,12 @@ class IndicatorsServiceTest {
 
     @Test
     void getIndicatorsWithPeriodDayQueriesToday() {
-        when(saleRepository.findByEstablishmentAndPeriod(eq(ESTABLISHMENT_ID), any(), any()))
+        when(saleRepository.findByOffererAndPeriod(eq(OFFERER_ID), any(), any()))
                 .thenReturn(Collections.emptyList());
-        when(recommendationRepository.findRespondedByEstablishmentAndPeriod(eq(ESTABLISHMENT_ID), any(), any()))
+        when(recommendationRepository.findRespondedByOffererAndPeriod(eq(OFFERER_ID), any(), any()))
                 .thenReturn(Collections.emptyList());
 
-        WasteAndSavingsIndicatorsDTO dto = service.getIndicators(ESTABLISHMENT_ID, IndicatorPeriod.DAY, null, null, false);
+        WasteAndSavingsIndicatorsDTO dto = service.getIndicators(OFFERER_ID, IndicatorPeriod.DAY, null, null, false);
 
         assertThat(dto.period().startDate()).isEqualTo(LocalDate.of(2026, 9, 15));
         assertThat(dto.period().endDate()).isEqualTo(LocalDate.of(2026, 9, 15));
@@ -111,12 +112,12 @@ class IndicatorsServiceTest {
 
     @Test
     void getIndicatorsWithPeriodWeekQueriesLastSevenDays() {
-        when(saleRepository.findByEstablishmentAndPeriod(eq(ESTABLISHMENT_ID), any(), any()))
+        when(saleRepository.findByOffererAndPeriod(eq(OFFERER_ID), any(), any()))
                 .thenReturn(Collections.emptyList());
-        when(recommendationRepository.findRespondedByEstablishmentAndPeriod(eq(ESTABLISHMENT_ID), any(), any()))
+        when(recommendationRepository.findRespondedByOffererAndPeriod(eq(OFFERER_ID), any(), any()))
                 .thenReturn(Collections.emptyList());
 
-        WasteAndSavingsIndicatorsDTO dto = service.getIndicators(ESTABLISHMENT_ID, IndicatorPeriod.WEEK, null, null, false);
+        WasteAndSavingsIndicatorsDTO dto = service.getIndicators(OFFERER_ID, IndicatorPeriod.WEEK, null, null, false);
 
         assertThat(dto.period().startDate()).isEqualTo(LocalDate.of(2026, 9, 9));
         assertThat(dto.period().endDate()).isEqualTo(LocalDate.of(2026, 9, 15));
@@ -127,12 +128,12 @@ class IndicatorsServiceTest {
         LocalDate start = LocalDate.of(2026, 9, 5);
         LocalDate end = LocalDate.of(2026, 9, 10);
 
-        when(saleRepository.findByEstablishmentAndPeriod(eq(ESTABLISHMENT_ID), any(), any()))
+        when(saleRepository.findByOffererAndPeriod(eq(OFFERER_ID), any(), any()))
                 .thenReturn(Collections.emptyList());
-        when(recommendationRepository.findRespondedByEstablishmentAndPeriod(eq(ESTABLISHMENT_ID), any(), any()))
+        when(recommendationRepository.findRespondedByOffererAndPeriod(eq(OFFERER_ID), any(), any()))
                 .thenReturn(Collections.emptyList());
 
-        WasteAndSavingsIndicatorsDTO dto = service.getIndicators(ESTABLISHMENT_ID, null, start, end, false);
+        WasteAndSavingsIndicatorsDTO dto = service.getIndicators(OFFERER_ID, null, start, end, false);
 
         assertThat(dto.period().startDate()).isEqualTo(start);
         assertThat(dto.period().endDate()).isEqualTo(end);
@@ -143,7 +144,7 @@ class IndicatorsServiceTest {
         LocalDate start = LocalDate.of(2026, 9, 20);
         LocalDate end = LocalDate.of(2026, 9, 10);
 
-        assertThatThrownBy(() -> service.getIndicators(ESTABLISHMENT_ID, null, start, end, false))
+        assertThatThrownBy(() -> service.getIndicators(OFFERER_ID, null, start, end, false))
                 .isInstanceOf(BusinessRuleViolationException.class)
                 .hasMessageContaining("startDate must not be after endDate");
     }
@@ -153,18 +154,18 @@ class IndicatorsServiceTest {
         LocalDate start = LocalDate.of(2026, 9, 11);
         LocalDate end = LocalDate.of(2026, 9, 15); // 5 dias (11, 12, 13, 14, 15)
 
-        Product product = createProduct(new BigDecimal("10.00"));
-        Sale currentSale = createSale(product, 4, new BigDecimal("6.00")); // 4 * 6 = 24.00
-        Sale prevSale = createSale(product, 2, new BigDecimal("5.00")); // 2 * 5 = 10.00
+        PerishableResource resource = createResource(new BigDecimal("10.00"));
+        Sale currentSale = createSale(resource, 4, new BigDecimal("6.00")); // 4 * 6 = 24.00
+        Sale prevSale = createSale(resource, 2, new BigDecimal("5.00")); // 2 * 5 = 10.00
 
-        when(saleRepository.findByEstablishmentAndPeriod(eq(ESTABLISHMENT_ID), any(), any()))
+        when(saleRepository.findByOffererAndPeriod(eq(OFFERER_ID), any(), any()))
                 .thenReturn(List.of(currentSale))
                 .thenReturn(List.of(prevSale));
 
-        when(recommendationRepository.findRespondedByEstablishmentAndPeriod(eq(ESTABLISHMENT_ID), any(), any()))
+        when(recommendationRepository.findRespondedByOffererAndPeriod(eq(OFFERER_ID), any(), any()))
                 .thenReturn(Collections.emptyList());
 
-        WasteAndSavingsIndicatorsDTO dto = service.getIndicators(ESTABLISHMENT_ID, null, start, end, true);
+        WasteAndSavingsIndicatorsDTO dto = service.getIndicators(OFFERER_ID, null, start, end, true);
 
         assertThat(dto).isNotNull();
         assertThat(dto.wasteAvoidedUnits()).isEqualTo(4);
@@ -176,15 +177,15 @@ class IndicatorsServiceTest {
         assertThat(dto.comparisonPeriod().wasteAvoidedUnits()).isEqualTo(2);
         assertThat(dto.comparisonPeriod().recoveredRevenue()).isEqualByComparingTo("10.00");
 
-        verify(saleRepository, times(2)).findByEstablishmentAndPeriod(eq(ESTABLISHMENT_ID), any(), any());
+        verify(saleRepository, times(2)).findByOffererAndPeriod(eq(OFFERER_ID), any(), any());
         verify(recommendationRepository, times(2))
-                .findRespondedByEstablishmentAndPeriod(eq(ESTABLISHMENT_ID), any(), any());
+                .findRespondedByOffererAndPeriod(eq(OFFERER_ID), any(), any());
     }
 
     @Test
     void getIndicatorsCalculatesSalesAndRecommendationsWithData() {
-        Product product = createProduct(new BigDecimal("10.00"));
-        Sale sale = createSale(product, 10, new BigDecimal("7.00"));
+        PerishableResource resource = createResource(new BigDecimal("10.00"));
+        Sale sale = createSale(resource, 10, new BigDecimal("7.00"));
 
         AiRecommendation acceptedRec = new AiRecommendation();
         acceptedRec.setStatus(RecommendationStatus.ACCEPTED);
@@ -192,12 +193,12 @@ class IndicatorsServiceTest {
         AiRecommendation refusedRec = new AiRecommendation();
         refusedRec.setStatus(RecommendationStatus.REFUSED);
 
-        when(saleRepository.findByEstablishmentAndPeriod(eq(ESTABLISHMENT_ID), any(), any()))
+        when(saleRepository.findByOffererAndPeriod(eq(OFFERER_ID), any(), any()))
                 .thenReturn(List.of(sale));
-        when(recommendationRepository.findRespondedByEstablishmentAndPeriod(eq(ESTABLISHMENT_ID), any(), any()))
+        when(recommendationRepository.findRespondedByOffererAndPeriod(eq(OFFERER_ID), any(), any()))
                 .thenReturn(List.of(acceptedRec, refusedRec));
 
-        WasteAndSavingsIndicatorsDTO dto = service.getIndicators(ESTABLISHMENT_ID, IndicatorPeriod.DAY, null, null, false);
+        WasteAndSavingsIndicatorsDTO dto = service.getIndicators(OFFERER_ID, IndicatorPeriod.DAY, null, null, false);
 
         assertThat(dto.wasteAvoidedUnits()).isEqualTo(10);
         assertThat(dto.recoveredRevenue()).isEqualByComparingTo("70.00");

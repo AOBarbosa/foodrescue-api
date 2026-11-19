@@ -15,20 +15,21 @@ import br.com.seudominio.perishrescue.core.time.TimeProvider;
 import br.com.seudominio.perishrescue.core.utils.MessageUtils;
 import br.com.seudominio.perishrescue.domain.dtos.OfferOrderDTO;
 import br.com.seudominio.perishrescue.domain.dtos.ReserveOfferRequest;
-import br.com.seudominio.perishrescue.domain.entities.Consumer;
-import br.com.seudominio.perishrescue.domain.entities.Establishment;
+import br.com.seudominio.perishrescue.domain.entities.Beneficiary;
+import br.com.seudominio.perishrescue.domain.entities.Offerer;
 import br.com.seudominio.perishrescue.domain.entities.Offer;
 import br.com.seudominio.perishrescue.domain.entities.OfferOrder;
-import br.com.seudominio.perishrescue.domain.entities.Product;
+import br.com.seudominio.perishrescue.domain.entities.PerishableResource;
 import br.com.seudominio.perishrescue.domain.enums.OfferOrderStatus;
 import br.com.seudominio.perishrescue.domain.enums.OfferStatus;
 import br.com.seudominio.perishrescue.domain.exception.BusinessRuleViolationException;
 import br.com.seudominio.perishrescue.domain.exception.EntityNotFoundException;
 import br.com.seudominio.perishrescue.domain.mappers.OfferMapper;
 import br.com.seudominio.perishrescue.domain.mappers.OfferOrderMapper;
-import br.com.seudominio.perishrescue.persistence.repositories.ConsumerRepository;
+import br.com.seudominio.perishrescue.persistence.repositories.BeneficiaryRepository;
 import br.com.seudominio.perishrescue.persistence.repositories.OfferOrderRepository;
 import br.com.seudominio.perishrescue.persistence.repositories.OfferRepository;
+import br.com.seudominio.perishrescue.domain.testsupport.TestResource;
 
 import jakarta.validation.Validator;
 
@@ -47,19 +48,19 @@ class OfferOrderServiceTest {
 
     private OfferRepository offerRepository;
     private OfferOrderRepository offerOrderRepository;
-    private ConsumerRepository consumerRepository;
+    private BeneficiaryRepository beneficiaryRepository;
     private OfferService offerService;
     private OfferOrderService offerOrderService;
-    private Product product;
-    private Consumer consumer;
+    private PerishableResource resource;
+    private Beneficiary beneficiary;
     private long nextOrderId;
 
     @BeforeEach
     void setUp() {
         offerRepository = mock(OfferRepository.class);
         offerOrderRepository = mock(OfferOrderRepository.class);
-        consumerRepository = mock(ConsumerRepository.class);
-        ProductService productService = mock(ProductService.class);
+        beneficiaryRepository = mock(BeneficiaryRepository.class);
+        ResourceService resourceService = mock(ResourceService.class);
         TimeProvider timeProvider = mock(TimeProvider.class);
         when(timeProvider.now()).thenReturn(NOW);
 
@@ -84,7 +85,7 @@ class OfferOrderServiceTest {
                 new OfferMapper(),
                 beanValidator,
                 messageUtils,
-                productService,
+                resourceService,
                 new OfferBusinessValidator(beanValidator, timeProvider),
                 timeProvider,
                 "22:00");
@@ -95,34 +96,35 @@ class OfferOrderServiceTest {
                 beanValidator,
                 messageUtils,
                 offerService,
-                consumerRepository,
+                beneficiaryRepository,
                 new OfferOrderBusinessValidator(beanValidator));
 
-        Establishment establishment = new Establishment();
-        establishment.setId(1L);
+        Offerer offerer = new Offerer();
+        offerer.setId(1L);
 
-        product = new Product();
-        product.setId(10L);
-        product.setName("Pao de queijo");
-        product.setEstablishment(establishment);
-        product.setOriginalPrice(Money.of(10.00));
-        product.setCurrentPrice(Money.of(5.20));
-        product.setStockQuantity(20);
+        resource = new TestResource();
+        resource.setId(10L);
+        resource.setName("Pao de queijo");
+        resource.setOfferer(offerer);
+        resource.setOriginalPrice(Money.of(10.00));
+        resource.setCurrentPrice(Money.of(5.20));
+        resource.setStockQuantity(20);
 
-        consumer = Consumer.builder()
+        beneficiary = Beneficiary.builder()
                 .id(50L)
                 .name("Maria")
+                .document("52998224725")
                 .email("maria@example.com")
                 .passwordHash("hashed")
                 .build();
 
-        when(consumerRepository.findById(50L)).thenReturn(Optional.of(consumer));
+        when(beneficiaryRepository.findById(50L)).thenReturn(Optional.of(beneficiary));
     }
 
     private Offer activeOffer(Long id, int quantity) {
         Offer offer = Offer.builder()
                 .id(id)
-                .product(product)
+                .resource(resource)
                 .discountedPrice(Money.of(5.20))
                 .availableQuantity(quantity)
                 .expiresAt(CLOSING)
@@ -140,9 +142,9 @@ class OfferOrderServiceTest {
 
         assertThat(dto.id()).isEqualTo(900L);
         assertThat(dto.offerId()).isEqualTo(700L);
-        assertThat(dto.productId()).isEqualTo(10L);
-        assertThat(dto.productName()).isEqualTo("Pao de queijo");
-        assertThat(dto.consumerId()).isEqualTo(50L);
+        assertThat(dto.resourceId()).isEqualTo(10L);
+        assertThat(dto.resourceName()).isEqualTo("Pao de queijo");
+        assertThat(dto.beneficiaryId()).isEqualTo(50L);
         assertThat(dto.quantity()).isEqualTo(3);
         assertThat(dto.unitPrice()).isEqualByComparingTo("5.20");
         assertThat(dto.totalPrice()).isEqualByComparingTo("15.60");
@@ -230,8 +232,8 @@ class OfferOrderServiceTest {
     }
 
     @Test
-    void reserveThrowsEntityNotFoundWhenConsumerDoesNotExist() {
-        when(consumerRepository.findById(999L)).thenReturn(Optional.empty());
+    void reserveThrowsEntityNotFoundWhenBeneficiaryDoesNotExist() {
+        when(beneficiaryRepository.findById(999L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> offerOrderService.reserve(new ReserveOfferRequest(700L, 1), 999L))
                 .isInstanceOf(EntityNotFoundException.class);
@@ -247,60 +249,60 @@ class OfferOrderServiceTest {
     }
 
     @Test
-    void findAllForConsumerReturnsConsumersReservations() {
+    void findAllForBeneficiaryReturnsBeneficiariesReservations() {
         Offer offer = activeOffer(700L, 5);
         OfferOrder first = OfferOrder.builder()
                 .id(901L)
                 .offer(offer)
-                .consumer(consumer)
+                .beneficiary(beneficiary)
                 .quantity(2)
                 .build();
         OfferOrder second = OfferOrder.builder()
                 .id(900L)
                 .offer(offer)
-                .consumer(consumer)
+                .beneficiary(beneficiary)
                 .quantity(1)
                 .build();
 
-        when(offerOrderRepository.findByConsumerIdAndActiveTrueOrderByCreationDateDesc(50L))
+        when(offerOrderRepository.findByBeneficiaryIdAndActiveTrueOrderByCreationDateDesc(50L))
                 .thenReturn(List.of(first, second));
 
-        List<OfferOrderDTO> result = offerOrderService.findAllForConsumer(50L);
+        List<OfferOrderDTO> result = offerOrderService.findAllForBeneficiary(50L);
 
         assertThat(result).extracting(OfferOrderDTO::id).containsExactly(901L, 900L);
     }
 
     @Test
-    void findByIdForConsumerReturnsReservationWhenOwnedByConsumer() {
+    void findByIdForBeneficiaryReturnsReservationWhenOwnedByBeneficiary() {
         Offer offer = activeOffer(700L, 5);
         OfferOrder order = OfferOrder.builder()
                 .id(900L)
                 .offer(offer)
-                .consumer(consumer)
+                .beneficiary(beneficiary)
                 .quantity(2)
                 .build();
 
         when(offerOrderRepository.findById(900L)).thenReturn(Optional.of(order));
 
-        OfferOrderDTO dto = offerOrderService.findByIdForConsumer(900L, 50L);
+        OfferOrderDTO dto = offerOrderService.findByIdForBeneficiary(900L, 50L);
 
         assertThat(dto.id()).isEqualTo(900L);
-        assertThat(dto.consumerId()).isEqualTo(50L);
+        assertThat(dto.beneficiaryId()).isEqualTo(50L);
     }
 
     @Test
-    void findByIdForConsumerThrowsEntityNotFoundWhenOwnedByAnotherConsumer() {
+    void findByIdForBeneficiaryThrowsEntityNotFoundWhenOwnedByAnotherBeneficiary() {
         Offer offer = activeOffer(700L, 5);
         OfferOrder order = OfferOrder.builder()
                 .id(900L)
                 .offer(offer)
-                .consumer(consumer)
+                .beneficiary(beneficiary)
                 .quantity(2)
                 .build();
 
         when(offerOrderRepository.findById(900L)).thenReturn(Optional.of(order));
 
-        assertThatThrownBy(() -> offerOrderService.findByIdForConsumer(900L, 99L))
+        assertThatThrownBy(() -> offerOrderService.findByIdForBeneficiary(900L, 99L))
                 .isInstanceOf(EntityNotFoundException.class);
     }
 }

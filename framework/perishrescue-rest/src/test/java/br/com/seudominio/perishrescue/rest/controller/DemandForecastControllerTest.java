@@ -25,11 +25,11 @@ class DemandForecastControllerTest {
     void setUp() {
         demandForecastService = mock(DemandForecastService.class);
         controller = new DemandForecastController(demandForecastService);
-        principal = new AuthenticatedPrincipal(1L, UserRole.ESTABLISHMENT);
+        principal = new AuthenticatedPrincipal(1L, UserRole.OFFERER);
     }
 
     @Test
-    void predictUsesAuthenticatedEstablishment() {
+    void predictUsesAuthenticatedOfferer() {
         DemandForecastResponse forecast = mock(DemandForecastResponse.class);
         when(demandForecastService.predictDemand(10L, 1L)).thenReturn(forecast);
 
@@ -43,7 +43,7 @@ class DemandForecastControllerTest {
     }
 
     @Test
-    void findLatestUsesAuthenticatedEstablishment() {
+    void findLatestUsesAuthenticatedOfferer() {
         DemandForecastResponse forecast = mock(DemandForecastResponse.class);
         when(demandForecastService.findLatest(10L, 1L)).thenReturn(forecast);
 

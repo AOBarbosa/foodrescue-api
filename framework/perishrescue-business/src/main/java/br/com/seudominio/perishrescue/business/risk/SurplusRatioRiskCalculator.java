@@ -12,7 +12,7 @@ import java.math.RoundingMode;
  * that the forecast does not absorb, i.e.
  * {@code (stock - predictedDemand) / stock * 100}.
  *
- * <p>A product whose predicted demand covers (or exceeds) its stock has no
+ * <p>A resource whose predicted demand covers (or exceeds) its stock has no
  * expected surplus and therefore {@code 0%} risk. An empty stock is also
  * {@code 0%}: there is nothing left to waste.</p>
  *

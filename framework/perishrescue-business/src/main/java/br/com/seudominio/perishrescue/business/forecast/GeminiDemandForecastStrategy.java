@@ -23,7 +23,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 /**
- * {@link DemandForecastStrategy} backed by Google Gemini. The product's daily
+ * {@link DemandForecastStrategy} backed by Google Gemini. The resource's daily
  * sales summary is sent to the model, which answers with the predicted
  * quantity, a confidence level and a short rationale.
  *
@@ -114,8 +114,8 @@ public class GeminiDemandForecastStrategy implements DemandForecastStrategy {
                 .append("Estime quantas unidades do produto abaixo ainda serão vendidas hoje, das ")
                 .append(HOUR.format(slotStart)).append(" até o fechamento às ").append(HOUR.format(slotEnd))
                 .append(".\n\n")
-                .append("Produto: ").append(context.productName())
-                .append(" (categoria: ").append(context.productCategory()).append(")\n")
+                .append("Produto: ").append(context.resourceName())
+                .append(" (categoria: ").append(context.resourceCategory()).append(")\n")
                 .append("Estoque atual: ").append(context.currentStock()).append(" unidades\n")
                 .append("Hoje: ").append(weekday(today)).append(", ").append(today).append("\n\n")
                 .append("Histórico diário (data, dia da semana, unidades vendidas entre ").append(slot)

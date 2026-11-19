@@ -5,7 +5,7 @@ import br.com.seudominio.perishrescue.core.time.TimeProvider;
 import br.com.seudominio.perishrescue.core.validation.AbstractValidator;
 import br.com.seudominio.perishrescue.core.validation.BusinessOperation;
 import br.com.seudominio.perishrescue.domain.entities.Offer;
-import br.com.seudominio.perishrescue.domain.entities.Product;
+import br.com.seudominio.perishrescue.domain.entities.PerishableResource;
 
 import jakarta.validation.Validator;
 
@@ -14,8 +14,8 @@ import org.springframework.stereotype.Component;
 /**
  * Business validator for {@link Offer} (UC08).
  *
- * <p>Guards the invariants of a published offer: it always has a product, a
- * positive price that never exceeds the product's list price, at least one
+ * <p>Guards the invariants of a published offer: it always has a resource, a
+ * positive price that never exceeds the resource's list price, at least one
  * unit, and a deadline still in the future.</p>
  *
  * @author Hugo Jose
@@ -46,7 +46,7 @@ public class OfferBusinessValidator extends AbstractValidator<Offer> implements 
                 v.getInvalidValue(),
                 "CONSTRAINT_VIOLATION"));
 
-        validateProduct(offer);
+        validateResource(offer);
         validateDiscountedPrice(offer);
         validateAvailableQuantity(offer);
         validateExpiresAt(offer);
@@ -57,9 +57,9 @@ public class OfferBusinessValidator extends AbstractValidator<Offer> implements 
         validate(entity);
     }
 
-    private void validateProduct(Offer offer) {
-        if (offer.getProduct() == null) {
-            addError("offer must reference a product", "product", null, "OFFER_WITHOUT_PRODUCT");
+    private void validateResource(Offer offer) {
+        if (offer.getResource() == null) {
+            addError("offer must reference a resource", "resource", null, "OFFER_WITHOUT_RESOURCE");
         }
     }
 
@@ -70,10 +70,10 @@ public class OfferBusinessValidator extends AbstractValidator<Offer> implements 
             return;
         }
 
-        Product product = offer.getProduct();
-        if (product != null && product.getOriginalPrice() != null
-                && offer.getDiscountedPrice().isGreaterThan(product.getOriginalPrice())) {
-            addError("discountedPrice must not be greater than the product's original price",
+        PerishableResource resource = offer.getResource();
+        if (resource != null && resource.getOriginalPrice() != null
+                && offer.getDiscountedPrice().isGreaterThan(resource.getOriginalPrice())) {
+            addError("discountedPrice must not be greater than the resource's original price",
                     "discountedPrice", offer.getDiscountedPrice(), "DISCOUNTED_PRICE_ABOVE_ORIGINAL");
         }
     }

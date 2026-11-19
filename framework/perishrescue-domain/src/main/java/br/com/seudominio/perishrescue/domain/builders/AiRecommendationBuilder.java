@@ -2,7 +2,7 @@ package br.com.seudominio.perishrescue.domain.builders;
 
 import br.com.seudominio.perishrescue.core.percentage.Percentage;
 import br.com.seudominio.perishrescue.domain.entities.AiRecommendation;
-import br.com.seudominio.perishrescue.domain.entities.Product;
+import br.com.seudominio.perishrescue.domain.entities.PerishableResource;
 import br.com.seudominio.perishrescue.domain.enums.RecommendationStatus;
 import br.com.seudominio.perishrescue.domain.enums.RecommendationType;
 
@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
 public class AiRecommendationBuilder {
 
     private Long id;
-    private Product product;
+    private PerishableResource resource;
     private RecommendationType type;
     private Percentage suggestedPercentage;
     private RecommendationStatus status;
@@ -36,13 +36,13 @@ public class AiRecommendationBuilder {
     }
 
     /**
-     * Sets the product this recommendation is about.
+     * Sets the resource this recommendation is about.
      *
-     * @param product the product this recommendation is about
+     * @param resource the resource this recommendation is about
      * @return the current instance of {@link AiRecommendationBuilder}
      */
-    public AiRecommendationBuilder product(Product product) {
-        this.product = product;
+    public AiRecommendationBuilder resource(PerishableResource resource) {
+        this.resource = resource;
         return this;
     }
 
@@ -91,9 +91,9 @@ public class AiRecommendationBuilder {
     }
 
     /**
-     * Sets the moment the establishment responded to the recommendation.
+     * Sets the moment the offerer responded to the recommendation.
      *
-     * @param respondedAt the moment the establishment responded to the recommendation
+     * @param respondedAt the moment the offerer responded to the recommendation
      * @return the current instance of {@link AiRecommendationBuilder}
      */
     public AiRecommendationBuilder respondedAt(LocalDateTime respondedAt) {
@@ -109,7 +109,7 @@ public class AiRecommendationBuilder {
     public AiRecommendation build() {
         AiRecommendation aiRecommendation = new AiRecommendation();
         aiRecommendation.setId(id);
-        aiRecommendation.setProduct(product);
+        aiRecommendation.setResource(resource);
         aiRecommendation.setType(type);
         aiRecommendation.setSuggestedPercentage(suggestedPercentage);
         aiRecommendation.setStatus(status != null ? status : RecommendationStatus.PENDING);

@@ -17,12 +17,13 @@ import br.com.seudominio.perishrescue.core.utils.MessageUtils;
 import br.com.seudominio.perishrescue.domain.dtos.DiscountRecommendationDTO;
 import br.com.seudominio.perishrescue.domain.dtos.WasteRiskDTO;
 import br.com.seudominio.perishrescue.domain.entities.AiRecommendation;
-import br.com.seudominio.perishrescue.domain.entities.Establishment;
-import br.com.seudominio.perishrescue.domain.entities.Product;
+import br.com.seudominio.perishrescue.domain.entities.Offerer;
+import br.com.seudominio.perishrescue.domain.entities.PerishableResource;
 import br.com.seudominio.perishrescue.domain.enums.RecommendationStatus;
 import br.com.seudominio.perishrescue.domain.enums.RecommendationType;
 import br.com.seudominio.perishrescue.domain.mappers.AiRecommendationMapper;
 import br.com.seudominio.perishrescue.persistence.repositories.AiRecommendationRepository;
+import br.com.seudominio.perishrescue.domain.testsupport.TestResource;
 
 import jakarta.validation.Validator;
 
@@ -42,7 +43,7 @@ class AiRecommendationServiceReassessTest {
     private WasteRiskService wasteRiskService;
     private TimeProvider timeProvider;
     private AiRecommendationService service;
-    private Product product;
+    private PerishableResource resource;
     private AiRecommendation tail;
 
     @BeforeEach
@@ -60,23 +61,23 @@ class AiRecommendationServiceReassessTest {
 
         service = new AiRecommendationService(
                 recommendationRepository, new AiRecommendationMapper(), mock(Validator.class),
-                mock(MessageUtils.class), mock(ProductService.class), wasteRiskService,
+                mock(MessageUtils.class), mock(ResourceService.class), wasteRiskService,
                 new RiskWeightedDiscountStrategy(0.6, 15, 4, 60), mock(DomainEventPublisher.class),
                 timeProvider, "22:00", 24, new DiscountThenPriorityStrategy(10, 60), 3, 60);
 
-        Establishment establishment = new Establishment();
-        establishment.setId(1L);
-        product = new Product();
-        product.setId(10L);
-        product.setName("Pao frances");
-        product.setEstablishment(establishment);
-        product.setStockQuantity(20);
-        product.setOriginalPrice(Money.of(10.00));
-        product.setCurrentPrice(Money.of(6.00));
+        Offerer offerer = new Offerer();
+        offerer.setId(1L);
+        resource = new TestResource();
+        resource.setId(10L);
+        resource.setName("Pao frances");
+        resource.setOfferer(offerer);
+        resource.setStockQuantity(20);
+        resource.setOriginalPrice(Money.of(10.00));
+        resource.setCurrentPrice(Money.of(6.00));
 
         tail = AiRecommendation.builder()
                 .id(500L)
-                .product(product)
+                .resource(resource)
                 .type(RecommendationType.DISCOUNT)
                 .suggestedPercentage(Percentage.of(40))
                 .status(RecommendationStatus.ACCEPTED)
@@ -85,7 +86,7 @@ class AiRecommendationServiceReassessTest {
 
         when(recommendationRepository.findChainTailsSince(NOW.toLocalDate().atStartOfDay()))
                 .thenReturn(List.of(tail));
-        when(recommendationRepository.findFirstByProductIdAndStatusAndActiveTrueOrderByCreationDateDesc(
+        when(recommendationRepository.findFirstByResourceIdAndStatusAndActiveTrueOrderByCreationDateDesc(
                 10L, RecommendationStatus.PENDING)).thenReturn(Optional.empty());
         when(wasteRiskService.assess(10L, 1L)).thenReturn(risk(true));
     }
@@ -109,7 +110,7 @@ class AiRecommendationServiceReassessTest {
 
     @Test
     void prioritizesWhenTheMaximumDiscountWasAlreadyReached() {
-        product.setCurrentPrice(Money.of(4.00));
+        resource.setCurrentPrice(Money.of(4.00));
 
         List<DiscountRecommendationDTO> generated = service.reassessSurplusDestination();
 
@@ -120,8 +121,8 @@ class AiRecommendationServiceReassessTest {
     }
 
     @Test
-    void generatesNothingWhenTheProductIsFullySold() {
-        product.setStockQuantity(0);
+    void generatesNothingWhenTheResourceIsFullySold() {
+        resource.setStockQuantity(0);
 
         assertThat(service.reassessSurplusDestination()).isEmpty();
         verify(recommendationRepository, never()).save(any(AiRecommendation.class));
@@ -144,7 +145,7 @@ class AiRecommendationServiceReassessTest {
 
     @Test
     void generatesNothingWhenARecommendationIsAlreadyPending() {
-        when(recommendationRepository.findFirstByProductIdAndStatusAndActiveTrueOrderByCreationDateDesc(
+        when(recommendationRepository.findFirstByResourceIdAndStatusAndActiveTrueOrderByCreationDateDesc(
                 10L, RecommendationStatus.PENDING)).thenReturn(Optional.of(tail));
 
         assertThat(service.reassessSurplusDestination()).isEmpty();
@@ -159,21 +160,21 @@ class AiRecommendationServiceReassessTest {
 
     @Test
     void chainIsReturnedOldestFirst() {
-        AiRecommendation next = AiRecommendation.builder().id(501L).product(product)
+        AiRecommendation next = AiRecommendation.builder().id(501L).resource(resource)
                 .type(RecommendationType.DISCOUNT).previousRecommendationId(500L).build();
         when(recommendationRepository
-                .findByProductIdAndCreationDateGreaterThanEqualAndActiveTrueOrderByCreationDateAsc(
+                .findByResourceIdAndCreationDateGreaterThanEqualAndActiveTrueOrderByCreationDateAsc(
                         10L, NOW.toLocalDate().atStartOfDay()))
                 .thenReturn(List.of(tail, next));
-        ProductService productService = mock(ProductService.class);
-        when(productService.findProductOwnedBy(10L, 1L)).thenReturn(product);
+        ResourceService resourceService = mock(ResourceService.class);
+        when(resourceService.findResourceOwnedBy(10L, 1L)).thenReturn(resource);
         AiRecommendationService local = new AiRecommendationService(
                 recommendationRepository, new AiRecommendationMapper(), mock(Validator.class),
-                mock(MessageUtils.class), productService, wasteRiskService,
+                mock(MessageUtils.class), resourceService, wasteRiskService,
                 new RiskWeightedDiscountStrategy(0.6, 15, 4, 60), mock(DomainEventPublisher.class),
                 timeProvider, "22:00", 24, new DiscountThenPriorityStrategy(10, 60), 3, 60);
 
-        List<DiscountRecommendationDTO> chain = local.findChainForProduct(10L, 1L);
+        List<DiscountRecommendationDTO> chain = local.findChainForResource(10L, 1L);
 
         assertThat(chain).extracting(DiscountRecommendationDTO::id).containsExactly(500L, 501L);
         assertThat(chain.get(1).previousRecommendationId()).isEqualTo(500L);

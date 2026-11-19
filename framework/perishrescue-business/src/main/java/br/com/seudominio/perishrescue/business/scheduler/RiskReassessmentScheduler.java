@@ -6,7 +6,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * Periodically triggers the reassessment of products still at risk after a
+ * Periodically triggers the reassessment of resources still at risk after a
  * discount (UC10). It holds no business logic: it only invokes the service.
  *
  * @author Clovis Medeiros

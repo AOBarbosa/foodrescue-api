@@ -16,8 +16,8 @@ import java.util.Date;
 import java.util.Optional;
 
 /**
- * Issues and validates the HS256 JWTs used to authenticate establishments and
- * consumers. The token carries the authenticated entity's id (subject) and
+ * Issues and validates the HS256 JWTs used to authenticate offerers and
+ * beneficiaries. The token carries the authenticated entity's id (subject) and
  * role (claim), matching {@link AuthenticatedPrincipal}.
  *
  * @author Andre Barbosa

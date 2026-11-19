@@ -30,7 +30,7 @@ class IndicatorsControllerTest {
     void setUp() {
         indicatorsService = mock(IndicatorsService.class);
         controller = new IndicatorsController(indicatorsService);
-        principal = new AuthenticatedPrincipal(1L, UserRole.ESTABLISHMENT);
+        principal = new AuthenticatedPrincipal(1L, UserRole.OFFERER);
     }
 
     private WasteAndSavingsIndicatorsDTO dummyDTO() {

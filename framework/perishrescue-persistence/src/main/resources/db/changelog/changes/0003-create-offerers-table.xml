@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0003-1-create-offerers-table" author="andre.barbosa">
+        <createTable tableName="offerers">
+            <column name="id" type="BIGINT">
+                <constraints primaryKey="true" primaryKeyName="offerers_pkey" nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="cnpj" type="VARCHAR(255)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="offerers_cnpj_key"/>
+            </column>
+            <column name="address" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="category" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="opening_time" type="TIME">
+                <constraints nullable="false"/>
+            </column>
+            <column name="closing_time" type="TIME">
+                <constraints nullable="false"/>
+            </column>
+            <column name="email" type="VARCHAR(255)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="offerers_email_key"/>
+            </column>
+            <column name="password_hash" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="active" type="BOOLEAN"/>
+            <column name="creation_date" type="TIMESTAMP(6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="modification_date" type="TIMESTAMP(6)"/>
+        </createTable>
+    </changeSet>
+
+</databaseChangeLog>

@@ -8,13 +8,14 @@ import static org.mockito.Mockito.when;
 import br.com.seudominio.perishrescue.business.risk.SurplusRatioRiskCalculator;
 import br.com.seudominio.perishrescue.domain.dtos.WasteRiskDTO;
 import br.com.seudominio.perishrescue.domain.entities.DemandForecast;
-import br.com.seudominio.perishrescue.domain.entities.Establishment;
-import br.com.seudominio.perishrescue.domain.entities.Product;
+import br.com.seudominio.perishrescue.domain.entities.Offerer;
+import br.com.seudominio.perishrescue.domain.entities.PerishableResource;
 import br.com.seudominio.perishrescue.domain.enums.ForecastConfidence;
 import br.com.seudominio.perishrescue.domain.exception.EntityNotFoundException;
 import br.com.seudominio.perishrescue.domain.mappers.DemandForecastMapper;
 import br.com.seudominio.perishrescue.persistence.repositories.DemandForecastRepository;
-import br.com.seudominio.perishrescue.persistence.repositories.ProductRepository;
+import br.com.seudominio.perishrescue.persistence.repositories.ResourceRepository;
+import br.com.seudominio.perishrescue.domain.testsupport.TestResource;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,41 +28,41 @@ class WasteRiskServiceTest {
 
     private static final LocalDateTime CALCULATED_AT = LocalDateTime.of(2026, 9, 14, 15, 0);
 
-    private ProductRepository productRepository;
+    private ResourceRepository resourceRepository;
     private DemandForecastRepository forecastRepository;
     private WasteRiskService service;
-    private Establishment establishment;
-    private Product product;
+    private Offerer offerer;
+    private PerishableResource resource;
 
     @BeforeEach
     void setUp() {
-        productRepository = mock(ProductRepository.class);
+        resourceRepository = mock(ResourceRepository.class);
         forecastRepository = mock(DemandForecastRepository.class);
 
-        service = new WasteRiskService(productRepository, forecastRepository, new DemandForecastMapper(),
+        service = new WasteRiskService(resourceRepository, forecastRepository, new DemandForecastMapper(),
                 new SurplusRatioRiskCalculator(), 70);
 
-        establishment = new Establishment();
-        establishment.setId(1L);
-        product = product(10L, "Pão francês", 20);
-        when(productRepository.findById(10L)).thenReturn(Optional.of(product));
+        offerer = new Offerer();
+        offerer.setId(1L);
+        resource = resource(10L, "Pão francês", 20);
+        when(resourceRepository.findById(10L)).thenReturn(Optional.of(resource));
     }
 
-    private Product product(Long id, String name, int stockQuantity) {
-        Product created = new Product();
+    private PerishableResource resource(Long id, String name, int stockQuantity) {
+        PerishableResource created = new TestResource();
         created.setId(id);
         created.setName(name);
-        created.setEstablishment(establishment);
+        created.setOfferer(offerer);
         created.setStockQuantity(stockQuantity);
         return created;
     }
 
-    private DemandForecast forecast(Long id, Product forecastProduct, int predictedQuantity) {
+    private DemandForecast forecast(Long id, PerishableResource forecastResource, int predictedQuantity) {
         return DemandForecast.builder()
                 .id(id)
-                .product(forecastProduct)
+                .resource(forecastResource)
                 .predictedQuantity(predictedQuantity)
-                .stockQuantity(forecastProduct.getStockQuantity())
+                .stockQuantity(forecastResource.getStockQuantity())
                 .confidence(ForecastConfidence.HIGH)
                 .sampleSize(8)
                 .source("weekday-hourly-average")
@@ -71,14 +72,14 @@ class WasteRiskServiceTest {
     }
 
     @Test
-    void assessFlagsProductWhoseRiskIsAboveTheThreshold() {
-        when(forecastRepository.findFirstByProductIdAndActiveTrueOrderByCalculatedAtDesc(10L))
-                .thenReturn(Optional.of(forecast(100L, product, 4)));
+    void assessFlagsResourceWhoseRiskIsAboveTheThreshold() {
+        when(forecastRepository.findFirstByResourceIdAndActiveTrueOrderByCalculatedAtDesc(10L))
+                .thenReturn(Optional.of(forecast(100L, resource, 4)));
 
         WasteRiskDTO risk = service.assess(10L, 1L);
 
-        assertThat(risk.productId()).isEqualTo(10L);
-        assertThat(risk.productName()).isEqualTo("Pão francês");
+        assertThat(risk.resourceId()).isEqualTo(10L);
+        assertThat(risk.resourceName()).isEqualTo("Pão francês");
         assertThat(risk.stockQuantity()).isEqualTo(20);
         assertThat(risk.predictedQuantity()).isEqualTo(4);
         assertThat(risk.expectedSurplus()).isEqualTo(16);
@@ -90,9 +91,9 @@ class WasteRiskServiceTest {
     }
 
     @Test
-    void assessDoesNotFlagProductWhoseRiskOnlyReachesTheThreshold() {
-        when(forecastRepository.findFirstByProductIdAndActiveTrueOrderByCalculatedAtDesc(10L))
-                .thenReturn(Optional.of(forecast(100L, product, 6)));
+    void assessDoesNotFlagResourceWhoseRiskOnlyReachesTheThreshold() {
+        when(forecastRepository.findFirstByResourceIdAndActiveTrueOrderByCalculatedAtDesc(10L))
+                .thenReturn(Optional.of(forecast(100L, resource, 6)));
 
         WasteRiskDTO risk = service.assess(10L, 1L);
 
@@ -102,8 +103,8 @@ class WasteRiskServiceTest {
 
     @Test
     void assessReturnsZeroRiskWhenStockIsCoveredByPredictedDemand() {
-        when(forecastRepository.findFirstByProductIdAndActiveTrueOrderByCalculatedAtDesc(10L))
-                .thenReturn(Optional.of(forecast(100L, product, 20)));
+        when(forecastRepository.findFirstByResourceIdAndActiveTrueOrderByCalculatedAtDesc(10L))
+                .thenReturn(Optional.of(forecast(100L, resource, 20)));
 
         WasteRiskDTO risk = service.assess(10L, 1L);
 
@@ -114,10 +115,10 @@ class WasteRiskServiceTest {
 
     @Test
     void assessUsesCurrentStockSoASaleImmediatelyLowersTheRisk() {
-        when(forecastRepository.findFirstByProductIdAndActiveTrueOrderByCalculatedAtDesc(10L))
-                .thenReturn(Optional.of(forecast(100L, product, 4)));
+        when(forecastRepository.findFirstByResourceIdAndActiveTrueOrderByCalculatedAtDesc(10L))
+                .thenReturn(Optional.of(forecast(100L, resource, 4)));
 
-        product.setStockQuantity(5);
+        resource.setStockQuantity(5);
         WasteRiskDTO risk = service.assess(10L, 1L);
 
         assertThat(risk.stockQuantity()).isEqualTo(5);
@@ -127,51 +128,51 @@ class WasteRiskServiceTest {
     }
 
     @Test
-    void assessRejectsProductFromAnotherEstablishment() {
+    void assessRejectsResourceFromAnotherOfferer() {
         assertThatThrownBy(() -> service.assess(10L, 2L)).isInstanceOf(EntityNotFoundException.class);
     }
 
     @Test
-    void assessRejectsUnknownProduct() {
-        when(productRepository.findById(99L)).thenReturn(Optional.empty());
+    void assessRejectsUnknownResource() {
+        when(resourceRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.assess(99L, 1L)).isInstanceOf(EntityNotFoundException.class);
     }
 
     @Test
-    void assessFailsWhenProductWasNeverForecast() {
-        when(forecastRepository.findFirstByProductIdAndActiveTrueOrderByCalculatedAtDesc(10L))
+    void assessFailsWhenResourceWasNeverForecast() {
+        when(forecastRepository.findFirstByResourceIdAndActiveTrueOrderByCalculatedAtDesc(10L))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.assess(10L, 1L))
                 .isInstanceOf(EntityNotFoundException.class)
-                .hasMessageContaining("product 10");
+                .hasMessageContaining("resource 10");
     }
 
     @Test
-    void findAllForEstablishmentKeepsOnlyFlaggedProductsRiskiestFirst() {
-        Product safe = product(11L, "Leite", 10);
-        Product risky = product(12L, "Bolo", 10);
-        when(forecastRepository.findLatestByEstablishment(1L)).thenReturn(List.of(
-                forecast(100L, product, 4), forecast(101L, safe, 9), forecast(102L, risky, 1)));
+    void findAllForOffererKeepsOnlyFlaggedResourcesRiskiestFirst() {
+        PerishableResource safe = resource(11L, "Leite", 10);
+        PerishableResource risky = resource(12L, "Bolo", 10);
+        when(forecastRepository.findLatestByOfferer(1L)).thenReturn(List.of(
+                forecast(100L, resource, 4), forecast(101L, safe, 9), forecast(102L, risky, 1)));
 
-        List<WasteRiskDTO> risks = service.findAllForEstablishment(1L, true);
+        List<WasteRiskDTO> risks = service.findAllForOfferer(1L, true);
 
-        assertThat(risks).extracting(WasteRiskDTO::productId).containsExactly(12L, 10L);
+        assertThat(risks).extracting(WasteRiskDTO::resourceId).containsExactly(12L, 10L);
         assertThat(risks).extracting(WasteRiskDTO::riskPercentage)
                 .usingComparatorForType(java.math.BigDecimal::compareTo, java.math.BigDecimal.class)
                 .containsExactly(new java.math.BigDecimal("90.00"), new java.math.BigDecimal("80.00"));
     }
 
     @Test
-    void findAllForEstablishmentCanReturnEveryForecastProduct() {
-        Product safe = product(11L, "Leite", 10);
-        when(forecastRepository.findLatestByEstablishment(1L)).thenReturn(List.of(
-                forecast(100L, product, 4), forecast(101L, safe, 9)));
+    void findAllForOffererCanReturnEveryForecastResource() {
+        PerishableResource safe = resource(11L, "Leite", 10);
+        when(forecastRepository.findLatestByOfferer(1L)).thenReturn(List.of(
+                forecast(100L, resource, 4), forecast(101L, safe, 9)));
 
-        List<WasteRiskDTO> risks = service.findAllForEstablishment(1L, false);
+        List<WasteRiskDTO> risks = service.findAllForOfferer(1L, false);
 
-        assertThat(risks).extracting(WasteRiskDTO::productId).containsExactly(10L, 11L);
+        assertThat(risks).extracting(WasteRiskDTO::resourceId).containsExactly(10L, 11L);
         assertThat(risks).extracting(WasteRiskDTO::atRisk).containsExactly(true, false);
     }
 }

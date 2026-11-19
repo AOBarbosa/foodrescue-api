@@ -1,7 +1,7 @@
 package br.com.seudominio.perishrescue.domain.builders;
 
 import br.com.seudominio.perishrescue.domain.entities.DemandForecast;
-import br.com.seudominio.perishrescue.domain.entities.Product;
+import br.com.seudominio.perishrescue.domain.entities.PerishableResource;
 import br.com.seudominio.perishrescue.domain.enums.ForecastConfidence;
 
 import java.time.LocalDateTime;
@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 public class DemandForecastBuilder {
 
     private Long id;
-    private Product product;
+    private PerishableResource resource;
     private int predictedQuantity;
     private int stockQuantity;
     private ForecastConfidence confidence;
@@ -37,13 +37,13 @@ public class DemandForecastBuilder {
     }
 
     /**
-     * Sets the product the forecast is about.
+     * Sets the resource the forecast is about.
      *
-     * @param product the product the forecast is about
+     * @param resource the resource the forecast is about
      * @return the current instance of {@link DemandForecastBuilder}
      */
-    public DemandForecastBuilder product(Product product) {
-        this.product = product;
+    public DemandForecastBuilder resource(PerishableResource resource) {
+        this.resource = resource;
         return this;
     }
 
@@ -143,7 +143,7 @@ public class DemandForecastBuilder {
     public DemandForecast build() {
         DemandForecast forecast = new DemandForecast();
         forecast.setId(id);
-        forecast.setProduct(product);
+        forecast.setResource(resource);
         forecast.setPredictedQuantity(predictedQuantity);
         forecast.setStockQuantity(stockQuantity);
         forecast.setConfidence(confidence);

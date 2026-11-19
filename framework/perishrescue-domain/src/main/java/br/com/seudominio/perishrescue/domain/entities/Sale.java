@@ -22,7 +22,7 @@ import java.time.LocalDateTime;
 
 /**
  * Sale. This class represents a recorded over-the-counter sale of a
- * {@link Product}, feeding the sales history later used by demand
+ * {@link PerishableResource}, feeding the sales history later used by demand
  * forecasting (UC05).
  *
  * @author Andre Barbosa
@@ -43,11 +43,11 @@ public class Sale extends AbstractEntity {
     private Long id;
 
     /**
-     * The sold product.
+     * The sold resource.
      */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "product_id", nullable = false)
-    private Product product;
+    @JoinColumn(name = "resource_id", nullable = false)
+    private PerishableResource resource;
 
     /**
      * Sold quantity.
@@ -94,12 +94,12 @@ public class Sale extends AbstractEntity {
         this.id = id;
     }
 
-    public Product getProduct() {
-        return product;
+    public PerishableResource getResource() {
+        return resource;
     }
 
-    public void setProduct(Product product) {
-        this.product = product;
+    public void setResource(PerishableResource resource) {
+        this.resource = resource;
     }
 
     public int getQuantity() {
@@ -128,7 +128,7 @@ public class Sale extends AbstractEntity {
 
     @Override
     public String toString() {
-        return "Sale [id=" + id + ", productId=" + (product == null ? null : product.getId())
+        return "Sale [id=" + id + ", resourceId=" + (resource == null ? null : resource.getId())
                 + ", quantity=" + quantity + "]";
     }
 }

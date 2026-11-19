@@ -16,14 +16,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Controller for product demand forecasting (UC05).
+ * Controller for resource demand forecasting (UC05).
  *
  * @author Andre Barbosa
  * @since 1.0.0
  */
-@Tag(name = "Demand forecast", description = "Product demand forecasting until the end of the business day")
+@Tag(name = "Demand forecast", description = "PerishableResource demand forecasting until the end of the business day")
 @RestController
-@RequestMapping("/products/{productId}/demand-forecast")
+@RequestMapping("/resources/{resourceId}/demand-forecast")
 public class DemandForecastController {
 
     private final DemandForecastService demandForecastService;
@@ -38,40 +38,40 @@ public class DemandForecastController {
     }
 
     /**
-     * Calculates and records the demand forecast of an authenticated establishment's product.
+     * Calculates and records the demand forecast of an authenticated offerer's resource.
      *
-     * @param productId the product id
+     * @param resourceId the resource id
      * @param principal the authenticated principal
      * @return the recorded forecast
      */
-    @PreAuthorize("hasRole('ROLE_ESTABLISHMENT')")
-    @Operation(summary = "Forecast how many units of a product will be sold until closing time")
+    @PreAuthorize("hasRole('ROLE_OFFERER')")
+    @Operation(summary = "Forecast how many units of a resource will be sold until closing time")
     @PostMapping
     public ResponseEntity<ApiResponse<DemandForecastResponse>> predict(
-            @PathVariable Long productId,
+            @PathVariable Long resourceId,
             @AuthenticationPrincipal AuthenticatedPrincipal principal) {
         return ResponseEntity.ok(new ApiResponse<>(
-                demandForecastService.predictDemand(productId, principal.id()),
+                demandForecastService.predictDemand(resourceId, principal.id()),
                 "Demand forecast calculated successfully",
                 true,
                 null));
     }
 
     /**
-     * Fetches the latest demand forecast of an authenticated establishment's product.
+     * Fetches the latest demand forecast of an authenticated offerer's resource.
      *
-     * @param productId the product id
+     * @param resourceId the resource id
      * @param principal the authenticated principal
      * @return the latest forecast
      */
-    @PreAuthorize("hasRole('ROLE_ESTABLISHMENT')")
-    @Operation(summary = "Get the latest demand forecast of a product")
+    @PreAuthorize("hasRole('ROLE_OFFERER')")
+    @Operation(summary = "Get the latest demand forecast of a resource")
     @GetMapping("/latest")
     public ResponseEntity<ApiResponse<DemandForecastResponse>> findLatest(
-            @PathVariable Long productId,
+            @PathVariable Long resourceId,
             @AuthenticationPrincipal AuthenticatedPrincipal principal) {
         return ResponseEntity.ok(new ApiResponse<>(
-                demandForecastService.findLatest(productId, principal.id()),
+                demandForecastService.findLatest(resourceId, principal.id()),
                 "Demand forecast retrieved successfully",
                 true,
                 null));

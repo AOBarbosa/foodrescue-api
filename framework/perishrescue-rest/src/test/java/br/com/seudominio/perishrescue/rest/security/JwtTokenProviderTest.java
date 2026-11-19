@@ -16,19 +16,19 @@ class JwtTokenProviderTest {
     void issuesAndParsesATokenRoundTrip() {
         JwtTokenProvider provider = provider(60_000);
 
-        String token = provider.generateToken(42L, UserRole.CONSUMER);
+        String token = provider.generateToken(42L, UserRole.BENEFICIARY);
 
         assertThat(provider.parseToken(token))
                 .isPresent()
                 .get()
-                .isEqualTo(new AuthenticatedPrincipal(42L, UserRole.CONSUMER));
+                .isEqualTo(new AuthenticatedPrincipal(42L, UserRole.BENEFICIARY));
     }
 
     @Test
     void rejectsAnExpiredToken() throws InterruptedException {
         JwtTokenProvider provider = provider(1);
 
-        String token = provider.generateToken(42L, UserRole.CONSUMER);
+        String token = provider.generateToken(42L, UserRole.BENEFICIARY);
         Thread.sleep(50);
 
         assertThat(provider.parseToken(token)).isEmpty();
@@ -37,7 +37,7 @@ class JwtTokenProviderTest {
     @Test
     void rejectsATamperedToken() {
         JwtTokenProvider provider = provider(60_000);
-        String token = provider.generateToken(42L, UserRole.CONSUMER);
+        String token = provider.generateToken(42L, UserRole.BENEFICIARY);
         String tampered = token.substring(0, token.length() - 1) + (token.endsWith("a") ? "b" : "a");
 
         assertThat(provider.parseToken(tampered)).isEmpty();
@@ -45,7 +45,7 @@ class JwtTokenProviderTest {
 
     @Test
     void rejectsATokenSignedWithADifferentSecret() {
-        String token = provider(60_000).generateToken(42L, UserRole.CONSUMER);
+        String token = provider(60_000).generateToken(42L, UserRole.BENEFICIARY);
         JwtTokenProvider otherProvider = new JwtTokenProvider("a-completely-different-secret-32-bytes!!", 60_000);
 
         assertThat(otherProvider.parseToken(token)).isEmpty();

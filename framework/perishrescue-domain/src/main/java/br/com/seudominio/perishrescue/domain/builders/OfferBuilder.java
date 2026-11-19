@@ -2,7 +2,7 @@ package br.com.seudominio.perishrescue.domain.builders;
 
 import br.com.seudominio.perishrescue.core.money.Money;
 import br.com.seudominio.perishrescue.domain.entities.Offer;
-import br.com.seudominio.perishrescue.domain.entities.Product;
+import br.com.seudominio.perishrescue.domain.entities.PerishableResource;
 import br.com.seudominio.perishrescue.domain.enums.OfferStatus;
 
 import java.time.LocalDateTime;
@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 public class OfferBuilder {
 
     private Long id;
-    private Product product;
+    private PerishableResource resource;
     private Money discountedPrice;
     private int availableQuantity;
     private LocalDateTime expiresAt;
@@ -35,20 +35,20 @@ public class OfferBuilder {
     }
 
     /**
-     * Sets the product this offer is made from.
+     * Sets the resource this offer is made from.
      *
-     * @param product the product this offer is made from
+     * @param resource the resource this offer is made from
      * @return the current instance of {@link OfferBuilder}
      */
-    public OfferBuilder product(Product product) {
-        this.product = product;
+    public OfferBuilder resource(PerishableResource resource) {
+        this.resource = resource;
         return this;
     }
 
     /**
-     * Sets the discounted price offered to consumers.
+     * Sets the discounted price offered to beneficiaries.
      *
-     * @param discountedPrice the discounted price offered to consumers
+     * @param discountedPrice the discounted price offered to beneficiaries
      * @return the current instance of {@link OfferBuilder}
      */
     public OfferBuilder discountedPrice(Money discountedPrice) {
@@ -90,7 +90,7 @@ public class OfferBuilder {
     }
 
     /**
-     * Sets whether the offer is marked as priority/featured for consumers.
+     * Sets whether the offer is marked as priority/featured for beneficiaries.
      *
      * @param priority whether the offer is priority
      * @return the current instance of {@link OfferBuilder}
@@ -108,7 +108,7 @@ public class OfferBuilder {
     public Offer build() {
         Offer offer = new Offer();
         offer.setId(id);
-        offer.setProduct(product);
+        offer.setResource(resource);
         offer.setDiscountedPrice(discountedPrice);
         offer.setAvailableQuantity(availableQuantity);
         offer.setExpiresAt(expiresAt);

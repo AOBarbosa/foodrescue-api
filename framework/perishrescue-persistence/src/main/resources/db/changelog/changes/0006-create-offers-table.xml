@@ -10,8 +10,8 @@
             <column name="id" type="BIGINT">
                 <constraints primaryKey="true" primaryKeyName="offers_pkey" nullable="false"/>
             </column>
-            <column name="product_id" type="BIGINT">
-                <constraints nullable="false" foreignKeyName="fk_offers_product" references="products(id)"/>
+            <column name="resource_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_offers_resource" references="resources(id)"/>
             </column>
             <column name="discounted_price" type="NUMERIC(38,2)">
                 <constraints nullable="false"/>

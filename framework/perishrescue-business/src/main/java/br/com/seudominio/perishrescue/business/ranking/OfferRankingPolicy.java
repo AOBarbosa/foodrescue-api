@@ -5,7 +5,7 @@ import br.com.seudominio.perishrescue.domain.entities.Offer;
 import java.util.Comparator;
 
 /**
- * Policy for ordering offers in consumer listings (UC11).
+ * Policy for ordering offers in beneficiary listings (UC11).
  *
  * <p>Priority/featured offers come first, followed by standard offers.
  * Within each priority group, offers closer to expiration come first.</p>

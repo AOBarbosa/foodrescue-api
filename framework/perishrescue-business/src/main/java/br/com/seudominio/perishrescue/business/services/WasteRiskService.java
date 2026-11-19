@@ -4,11 +4,11 @@ import br.com.seudominio.perishrescue.business.risk.RiskCalculator;
 import br.com.seudominio.perishrescue.core.percentage.Percentage;
 import br.com.seudominio.perishrescue.domain.dtos.WasteRiskDTO;
 import br.com.seudominio.perishrescue.domain.entities.DemandForecast;
-import br.com.seudominio.perishrescue.domain.entities.Product;
+import br.com.seudominio.perishrescue.domain.entities.PerishableResource;
 import br.com.seudominio.perishrescue.domain.exception.EntityNotFoundException;
 import br.com.seudominio.perishrescue.domain.mappers.DemandForecastMapper;
 import br.com.seudominio.perishrescue.persistence.repositories.DemandForecastRepository;
-import br.com.seudominio.perishrescue.persistence.repositories.ProductRepository;
+import br.com.seudominio.perishrescue.persistence.repositories.ResourceRepository;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -17,15 +17,15 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 /**
- * Service that identifies products at risk of being wasted (UC06).
+ * Service that identifies resources at risk of being wasted (UC06).
  *
  * <p>It only combines an already existing demand forecast (produced by UC05)
- * with the product's current stock — it never recalculates the forecast, nor
+ * with the resource's current stock — it never recalculates the forecast, nor
  * decides on a discount (that is UC07). The formula itself lives in a
  * {@link RiskCalculator}, and the flagging threshold is read from
  * {@code app.waste-risk.threshold}, so neither can change this class.</p>
  *
- * <p>The assessment is derived on read from the product's <em>current</em>
+ * <p>The assessment is derived on read from the resource's <em>current</em>
  * stock, so every sale (UC04) or inventory update (UC03) is automatically
  * reflected the next time the risk is read — there is no stale value to
  * reprocess.</p>
@@ -37,7 +37,7 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class WasteRiskService {
 
-    private final ProductRepository productRepository;
+    private final ResourceRepository resourceRepository;
     private final DemandForecastRepository forecastRepository;
     private final DemandForecastMapper forecastMapper;
     private final RiskCalculator riskCalculator;
@@ -46,19 +46,19 @@ public class WasteRiskService {
     /**
      * Constructor.
      *
-     * @param productRepository  the product repository
+     * @param resourceRepository  the resource repository
      * @param forecastRepository the demand forecast repository
      * @param forecastMapper     the demand forecast mapper
      * @param riskCalculator     the waste risk formula
-     * @param threshold          the risk percentage above which a product is flagged
+     * @param threshold          the risk percentage above which a resource is flagged
      */
     public WasteRiskService(
-            ProductRepository productRepository,
+            ResourceRepository resourceRepository,
             DemandForecastRepository forecastRepository,
             DemandForecastMapper forecastMapper,
             RiskCalculator riskCalculator,
             @Value("${app.waste-risk.threshold:70}") double threshold) {
-        this.productRepository = productRepository;
+        this.resourceRepository = resourceRepository;
         this.forecastRepository = forecastRepository;
         this.forecastMapper = forecastMapper;
         this.riskCalculator = riskCalculator;
@@ -66,42 +66,42 @@ public class WasteRiskService {
     }
 
     /**
-     * Assesses the waste risk of a single product from its latest forecast.
+     * Assesses the waste risk of a single resource from its latest forecast.
      *
-     * @param productId       the product id
-     * @param establishmentId the authenticated establishment id
-     * @return the product's waste risk
-     * @throws EntityNotFoundException if the product does not exist, belongs to another
-     *                                 establishment or was never forecast
+     * @param resourceId       the resource id
+     * @param offererId the authenticated offerer id
+     * @return the resource's waste risk
+     * @throws EntityNotFoundException if the resource does not exist, belongs to another
+     *                                 offerer or was never forecast
      */
-    public WasteRiskDTO assess(Long productId, Long establishmentId) {
-        Product product = findProductOwnedBy(productId, establishmentId);
+    public WasteRiskDTO assess(Long resourceId, Long offererId) {
+        PerishableResource resource = findResourceOwnedBy(resourceId, offererId);
         DemandForecast forecast = forecastRepository
-                .findFirstByProductIdAndActiveTrueOrderByCalculatedAtDesc(productId)
-                .orElseThrow(() -> new EntityNotFoundException(DemandForecast.class, "product " + productId));
+                .findFirstByResourceIdAndActiveTrueOrderByCalculatedAtDesc(resourceId)
+                .orElseThrow(() -> new EntityNotFoundException(DemandForecast.class, "resource " + resourceId));
 
-        return toRisk(product, forecast);
+        return toRisk(resource, forecast);
     }
 
     /**
-     * Lists the waste risk of every forecast product of an establishment — the
-     * data behind its panel. Products that were never forecast are left out,
+     * Lists the waste risk of every forecast resource of an offerer — the
+     * data behind its panel. Resources that were never forecast are left out,
      * since there is no demand to compare their stock against.
      *
-     * @param establishmentId the authenticated establishment id
-     * @param atRiskOnly      whether to keep only the products above the threshold
-     * @return the assessed products, the riskiest first
+     * @param offererId the authenticated offerer id
+     * @param atRiskOnly      whether to keep only the resources above the threshold
+     * @return the assessed resources, the riskiest first
      */
-    public List<WasteRiskDTO> findAllForEstablishment(Long establishmentId, boolean atRiskOnly) {
-        return forecastRepository.findLatestByEstablishment(establishmentId).stream()
-                .map(forecast -> toRisk(forecast.getProduct(), forecast))
+    public List<WasteRiskDTO> findAllForOfferer(Long offererId, boolean atRiskOnly) {
+        return forecastRepository.findLatestByOfferer(offererId).stream()
+                .map(forecast -> toRisk(forecast.getResource(), forecast))
                 .filter(risk -> !atRiskOnly || risk.atRisk())
                 .sorted((first, second) -> second.riskPercentage().compareTo(first.riskPercentage()))
                 .toList();
     }
 
     /**
-     * Returns the risk percentage above which a product is flagged.
+     * Returns the risk percentage above which a resource is flagged.
      *
      * @return the configured threshold
      */
@@ -109,24 +109,24 @@ public class WasteRiskService {
         return threshold;
     }
 
-    private WasteRiskDTO toRisk(Product product, DemandForecast forecast) {
-        int stockQuantity = product.getStockQuantity();
+    private WasteRiskDTO toRisk(PerishableResource resource, DemandForecast forecast) {
+        int stockQuantity = resource.getStockQuantity();
         int predictedQuantity = forecast.getPredictedQuantity();
 
         int surplus = riskCalculator.expectedSurplus(stockQuantity, predictedQuantity);
         Percentage risk = riskCalculator.calculate(stockQuantity, predictedQuantity);
         boolean atRisk = risk.value().compareTo(threshold.value()) > 0;
 
-        return forecastMapper.toRiskResponse(product, forecast, surplus, risk, threshold, atRisk);
+        return forecastMapper.toRiskResponse(resource, forecast, surplus, risk, threshold, atRisk);
     }
 
-    private Product findProductOwnedBy(Long id, Long establishmentId) {
-        Product product = productRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException(Product.class, id));
+    private PerishableResource findResourceOwnedBy(Long id, Long offererId) {
+        PerishableResource resource = resourceRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException(PerishableResource.class, id));
 
-        if (!product.getEstablishment().getId().equals(establishmentId)) {
-            throw new EntityNotFoundException(Product.class, id);
+        if (!resource.getOfferer().getId().equals(offererId)) {
+            throw new EntityNotFoundException(PerishableResource.class, id);
         }
-        return product;
+        return resource;
     }
 }

@@ -1,6 +1,6 @@
 package br.com.seudominio.perishrescue.domain.builders;
 
-import br.com.seudominio.perishrescue.domain.entities.Consumer;
+import br.com.seudominio.perishrescue.domain.entities.Beneficiary;
 import br.com.seudominio.perishrescue.domain.entities.Offer;
 import br.com.seudominio.perishrescue.domain.entities.OfferOrder;
 import br.com.seudominio.perishrescue.domain.enums.OfferOrderStatus;
@@ -15,7 +15,7 @@ public class OfferOrderBuilder {
 
     private Long id;
     private Offer offer;
-    private Consumer consumer;
+    private Beneficiary beneficiary;
     private int quantity;
     private OfferOrderStatus status;
 
@@ -42,13 +42,13 @@ public class OfferOrderBuilder {
     }
 
     /**
-     * Sets the consumer that made the reservation.
+     * Sets the beneficiary that made the reservation.
      *
-     * @param consumer the consumer that made the reservation
+     * @param beneficiary the beneficiary that made the reservation
      * @return the current instance of {@link OfferOrderBuilder}
      */
-    public OfferOrderBuilder consumer(Consumer consumer) {
-        this.consumer = consumer;
+    public OfferOrderBuilder beneficiary(Beneficiary beneficiary) {
+        this.beneficiary = beneficiary;
         return this;
     }
 
@@ -83,7 +83,7 @@ public class OfferOrderBuilder {
         OfferOrder offerOrder = new OfferOrder();
         offerOrder.setId(id);
         offerOrder.setOffer(offer);
-        offerOrder.setConsumer(consumer);
+        offerOrder.setBeneficiary(beneficiary);
         offerOrder.setQuantity(quantity);
         offerOrder.setStatus(status != null ? status : OfferOrderStatus.RESERVED);
         return offerOrder;

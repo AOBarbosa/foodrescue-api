@@ -21,7 +21,7 @@ import org.hibernate.envers.Audited;
 import java.time.LocalDateTime;
 
 /**
- * DemandForecast. This class represents how many units of a {@link Product}
+ * DemandForecast. This class represents how many units of a {@link PerishableResource}
  * are expected to be sold between the moment of calculation and the end of
  * the business day, based on its {@link Sale} history (UC05). It feeds the
  * waste-risk analysis (UC06).
@@ -44,11 +44,11 @@ public class DemandForecast extends AbstractEntity {
     private Long id;
 
     /**
-     * The product this forecast is about.
+     * The resource this forecast is about.
      */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "product_id", nullable = false)
-    private Product product;
+    @JoinColumn(name = "resource_id", nullable = false)
+    private PerishableResource resource;
 
     /**
      * Units expected to be sold until the end of the business day.
@@ -57,7 +57,7 @@ public class DemandForecast extends AbstractEntity {
     private int predictedQuantity;
 
     /**
-     * Stock quantity of the product at the moment of calculation.
+     * Stock quantity of the resource at the moment of calculation.
      */
     @Column(name = "stock_quantity", nullable = false)
     private int stockQuantity;
@@ -125,12 +125,12 @@ public class DemandForecast extends AbstractEntity {
         this.id = id;
     }
 
-    public Product getProduct() {
-        return product;
+    public PerishableResource getResource() {
+        return resource;
     }
 
-    public void setProduct(Product product) {
-        this.product = product;
+    public void setResource(PerishableResource resource) {
+        this.resource = resource;
     }
 
     public int getPredictedQuantity() {
@@ -199,7 +199,7 @@ public class DemandForecast extends AbstractEntity {
 
     @Override
     public String toString() {
-        return "DemandForecast [id=" + id + ", productId=" + (product == null ? null : product.getId())
+        return "DemandForecast [id=" + id + ", resourceId=" + (resource == null ? null : resource.getId())
                 + ", predictedQuantity=" + predictedQuantity + ", confidence=" + confidence + ", source=" + source + "]";
     }
 }

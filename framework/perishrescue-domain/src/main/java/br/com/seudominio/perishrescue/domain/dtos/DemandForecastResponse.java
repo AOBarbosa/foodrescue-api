@@ -5,12 +5,12 @@ import br.com.seudominio.perishrescue.domain.enums.ForecastConfidence;
 import java.time.LocalDateTime;
 
 /**
- * Response carrying a product's demand forecast (UC05).
+ * Response carrying a resource's demand forecast (UC05).
  *
  * @param id                the forecast's identifier
- * @param productId         the forecast product's identifier
+ * @param resourceId         the forecast resource's identifier
  * @param predictedQuantity units expected to be sold until the end of the business day
- * @param stockQuantity     the product's stock quantity at the moment of calculation
+ * @param stockQuantity     the resource's stock quantity at the moment of calculation
  * @param confidence        the forecast's confidence level
  * @param sampleSize        number of past sales considered in the calculation
  * @param source            the algorithm or AI model that produced the forecast
@@ -23,7 +23,7 @@ import java.time.LocalDateTime;
  */
 public record DemandForecastResponse(
         Long id,
-        Long productId,
+        Long resourceId,
         int predictedQuantity,
         int stockQuantity,
         ForecastConfidence confidence,

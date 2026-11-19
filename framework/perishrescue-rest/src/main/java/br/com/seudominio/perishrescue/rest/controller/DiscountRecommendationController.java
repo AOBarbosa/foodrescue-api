@@ -27,7 +27,7 @@ import java.util.List;
  * @since 1.0.0
  */
 @Tag(name = "Discount recommendations",
-        description = "Suggested discounts for products at risk of being wasted, and the establishment's answer")
+        description = "Suggested discounts for resources at risk of being wasted, and the offerer's answer")
 @RestController
 public class DiscountRecommendationController {
 
@@ -43,79 +43,79 @@ public class DiscountRecommendationController {
     }
 
     /**
-     * Generates a discount recommendation for a product at risk of being wasted.
+     * Generates a discount recommendation for a resource at risk of being wasted.
      *
-     * @param productId the product id
+     * @param resourceId the resource id
      * @param principal the authenticated principal
      * @return the pending recommendation
      */
-    @PreAuthorize("hasRole('ROLE_ESTABLISHMENT')")
-    @Operation(summary = "Suggest a discount for a product flagged as at risk of waste")
-    @PostMapping("/products/{productId}/discount-recommendations")
+    @PreAuthorize("hasRole('ROLE_OFFERER')")
+    @Operation(summary = "Suggest a discount for a resource flagged as at risk of waste")
+    @PostMapping("/resources/{resourceId}/discount-recommendations")
     public ResponseEntity<ApiResponse<DiscountRecommendationDTO>> recommend(
-            @PathVariable Long productId,
+            @PathVariable Long resourceId,
             @AuthenticationPrincipal AuthenticatedPrincipal principal) {
         return ResponseEntity.ok(new ApiResponse<>(
-                aiRecommendationService.recommendDiscount(productId, principal.id()),
+                aiRecommendationService.recommendDiscount(resourceId, principal.id()),
                 "Discount recommendation generated successfully",
                 true,
                 null));
     }
 
     /**
-     * Lists every recommendation ever made for a product, newest first.
+     * Lists every recommendation ever made for a resource, newest first.
      *
-     * @param productId the product id
+     * @param resourceId the resource id
      * @param principal the authenticated principal
-     * @return the product's recommendation history
+     * @return the resource's recommendation history
      */
-    @PreAuthorize("hasRole('ROLE_ESTABLISHMENT')")
-    @Operation(summary = "List the recommendation history of a product")
-    @GetMapping("/products/{productId}/discount-recommendations")
+    @PreAuthorize("hasRole('ROLE_OFFERER')")
+    @Operation(summary = "List the recommendation history of a resource")
+    @GetMapping("/resources/{resourceId}/discount-recommendations")
     public ResponseEntity<ApiResponse<List<DiscountRecommendationDTO>>> history(
-            @PathVariable Long productId,
+            @PathVariable Long resourceId,
             @AuthenticationPrincipal AuthenticatedPrincipal principal) {
         return ResponseEntity.ok(new ApiResponse<>(
-                aiRecommendationService.findHistoryForProduct(productId, principal.id()),
+                aiRecommendationService.findHistoryForResource(resourceId, principal.id()),
                 "Recommendation history retrieved successfully",
                 true,
                 null));
     }
 
     /**
-     * Lists today's chain of recommendations for a product, oldest first, from
+     * Lists today's chain of recommendations for a resource, oldest first, from
      * the initial recommendation to each new one that followed it (UC10).
      *
-     * @param productId the product id
+     * @param resourceId the resource id
      * @param principal the authenticated principal
-     * @return the product's chain of recommendations
+     * @return the resource's chain of recommendations
      */
-    @PreAuthorize("hasRole('ROLE_ESTABLISHMENT')")
-    @Operation(summary = "List today's chain of recommendations of a product")
-    @GetMapping("/products/{productId}/recommendation-chain")
+    @PreAuthorize("hasRole('ROLE_OFFERER')")
+    @Operation(summary = "List today's chain of recommendations of a resource")
+    @GetMapping("/resources/{resourceId}/recommendation-chain")
     public ResponseEntity<ApiResponse<List<DiscountRecommendationDTO>>> chain(
-            @PathVariable Long productId,
+            @PathVariable Long resourceId,
             @AuthenticationPrincipal AuthenticatedPrincipal principal) {
         return ResponseEntity.ok(new ApiResponse<>(
-                aiRecommendationService.findChainForProduct(productId, principal.id()),
+                aiRecommendationService.findChainForResource(resourceId, principal.id()),
                 "Recommendation chain retrieved successfully",
                 true,
                 null));
     }
     /**
-     * Lists the authenticated establishment's recommendations still waiting for
+     * Lists the authenticated offerer's recommendations still waiting for
      * an answer, oldest first.
      *
      * @param principal the authenticated principal
      * @return the pending recommendations
      */
-    @PreAuthorize("hasRole('ROLE_ESTABLISHMENT')")
+    @PreAuthorize("hasRole('ROLE_OFFERER')")
     @Operation(summary = "List the discount recommendations waiting for an answer")
     @GetMapping("/discount-recommendations")
     public ResponseEntity<ApiResponse<List<DiscountRecommendationDTO>>> pending(
             @AuthenticationPrincipal AuthenticatedPrincipal principal) {
         return ResponseEntity.ok(new ApiResponse<>(
-                aiRecommendationService.findPendingForEstablishment(principal.id()),
+                aiRecommendationService.findPendingForOfferer(principal.id()),
                 "Pending recommendations retrieved successfully",
                 true,
                 null));
@@ -125,11 +125,11 @@ public class DiscountRecommendationController {
      * Accepts, adjusts or refuses a pending recommendation.
      *
      * @param id        the recommendation id
-     * @param request   the establishment's answer
+     * @param request   the offerer's answer
      * @param principal the authenticated principal
      * @return the answered recommendation
      */
-    @PreAuthorize("hasRole('ROLE_ESTABLISHMENT')")
+    @PreAuthorize("hasRole('ROLE_OFFERER')")
     @Operation(summary = "Accept, adjust or refuse a pending discount recommendation")
     @PatchMapping("/discount-recommendations/{id}")
     public ResponseEntity<ApiResponse<DiscountRecommendationDTO>> respond(
@@ -142,9 +142,9 @@ public class DiscountRecommendationController {
         return ResponseEntity.ok(new ApiResponse<>(
                 answered,
                 switch (answered.status()) {
-                    case ACCEPTED -> "Recommendation accepted; the product price was updated";
-                    case ADJUSTED -> "Recommendation adjusted; the product price was updated";
-                    default -> "Recommendation refused; the product price was not changed";
+                    case ACCEPTED -> "Recommendation accepted; the resource price was updated";
+                    case ADJUSTED -> "Recommendation adjusted; the resource price was updated";
+                    default -> "Recommendation refused; the resource price was not changed";
                 },
                 true,
                 null));

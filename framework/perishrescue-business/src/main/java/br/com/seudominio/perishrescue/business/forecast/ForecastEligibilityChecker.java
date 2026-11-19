@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 /**
- * Decides whether a product has enough sales history to be forecast (UC05).
+ * Decides whether a resource has enough sales history to be forecast (UC05).
  * The minimum number of past sales is configurable through
  * {@code app.forecast.min-sales} (defaults to 5).
  *
@@ -32,7 +32,7 @@ public class ForecastEligibilityChecker {
     /**
      * Checks whether the given sales history is enough to forecast.
      *
-     * @param salesHistory the product's past sales
+     * @param salesHistory the resource's past sales
      * @return {@code true} if the history has at least the minimum number of sales
      */
     public boolean isEligible(List<Sale> salesHistory) {

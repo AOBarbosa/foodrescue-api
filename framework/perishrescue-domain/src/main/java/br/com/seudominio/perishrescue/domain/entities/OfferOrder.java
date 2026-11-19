@@ -19,7 +19,7 @@ import jakarta.persistence.Table;
 import org.hibernate.envers.Audited;
 
 /**
- * OfferOrder. This class represents a consumer's reservation/purchase of an
+ * OfferOrder. This class represents a beneficiary's reservation/purchase of an
  * {@link Offer} (UC09).
  *
  * @author Andre Barbosa
@@ -47,11 +47,11 @@ public class OfferOrder extends AbstractEntity {
     private Offer offer;
 
     /**
-     * The consumer that made the reservation.
+     * The beneficiary that made the reservation.
      */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "consumer_id", nullable = false)
-    private Consumer consumer;
+    @JoinColumn(name = "beneficiary_id", nullable = false)
+    private Beneficiary beneficiary;
 
     /**
      * Reserved quantity.
@@ -100,12 +100,12 @@ public class OfferOrder extends AbstractEntity {
         this.offer = offer;
     }
 
-    public Consumer getConsumer() {
-        return consumer;
+    public Beneficiary getBeneficiary() {
+        return beneficiary;
     }
 
-    public void setConsumer(Consumer consumer) {
-        this.consumer = consumer;
+    public void setBeneficiary(Beneficiary beneficiary) {
+        this.beneficiary = beneficiary;
     }
 
     public int getQuantity() {

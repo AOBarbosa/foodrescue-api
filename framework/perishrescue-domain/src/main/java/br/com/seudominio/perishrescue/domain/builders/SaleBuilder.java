@@ -1,7 +1,7 @@
 package br.com.seudominio.perishrescue.domain.builders;
 
 import br.com.seudominio.perishrescue.core.money.Money;
-import br.com.seudominio.perishrescue.domain.entities.Product;
+import br.com.seudominio.perishrescue.domain.entities.PerishableResource;
 import br.com.seudominio.perishrescue.domain.entities.Sale;
 
 import java.time.LocalDateTime;
@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 public class SaleBuilder {
 
     private Long id;
-    private Product product;
+    private PerishableResource resource;
     private int quantity;
     private Money unitPrice;
     private LocalDateTime soldAt;
@@ -32,13 +32,13 @@ public class SaleBuilder {
     }
 
     /**
-     * Sets the sold product.
+     * Sets the sold resource.
      *
-     * @param product the sold product
+     * @param resource the sold resource
      * @return the current instance of {@link SaleBuilder}
      */
-    public SaleBuilder product(Product product) {
-        this.product = product;
+    public SaleBuilder resource(PerishableResource resource) {
+        this.resource = resource;
         return this;
     }
 
@@ -83,7 +83,7 @@ public class SaleBuilder {
     public Sale build() {
         Sale sale = new Sale();
         sale.setId(id);
-        sale.setProduct(product);
+        sale.setResource(resource);
         sale.setQuantity(quantity);
         sale.setUnitPrice(unitPrice);
         sale.setSoldAt(soldAt);

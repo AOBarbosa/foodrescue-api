@@ -21,8 +21,8 @@ import br.com.seudominio.perishrescue.domain.dtos.DiscountRecommendationDTO;
 import br.com.seudominio.perishrescue.domain.dtos.RespondToDiscountRecommendationRequest;
 import br.com.seudominio.perishrescue.domain.dtos.WasteRiskDTO;
 import br.com.seudominio.perishrescue.domain.entities.AiRecommendation;
-import br.com.seudominio.perishrescue.domain.entities.Establishment;
-import br.com.seudominio.perishrescue.domain.entities.Product;
+import br.com.seudominio.perishrescue.domain.entities.Offerer;
+import br.com.seudominio.perishrescue.domain.entities.PerishableResource;
 import br.com.seudominio.perishrescue.domain.enums.RecommendationDecision;
 import br.com.seudominio.perishrescue.domain.enums.RecommendationStatus;
 import br.com.seudominio.perishrescue.domain.enums.RecommendationType;
@@ -30,6 +30,7 @@ import br.com.seudominio.perishrescue.domain.exception.BusinessRuleViolationExce
 import br.com.seudominio.perishrescue.domain.exception.EntityNotFoundException;
 import br.com.seudominio.perishrescue.domain.mappers.AiRecommendationMapper;
 import br.com.seudominio.perishrescue.persistence.repositories.AiRecommendationRepository;
+import br.com.seudominio.perishrescue.domain.testsupport.TestResource;
 
 import jakarta.validation.Validator;
 
@@ -48,17 +49,17 @@ class AiRecommendationServiceTest {
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 9, 14, 15, 0);
 
     private AiRecommendationRepository recommendationRepository;
-    private ProductService productService;
+    private ResourceService resourceService;
     private WasteRiskService wasteRiskService;
     private DomainEventPublisher eventPublisher;
     private AiRecommendationService service;
-    private Establishment establishment;
-    private Product product;
+    private Offerer offerer;
+    private PerishableResource resource;
 
     @BeforeEach
     void setUp() {
         recommendationRepository = mock(AiRecommendationRepository.class);
-        productService = mock(ProductService.class);
+        resourceService = mock(ResourceService.class);
         wasteRiskService = mock(WasteRiskService.class);
         eventPublisher = mock(DomainEventPublisher.class);
         TimeProvider timeProvider = mock(TimeProvider.class);
@@ -75,21 +76,21 @@ class AiRecommendationServiceTest {
 
         service = new AiRecommendationService(
                 recommendationRepository, new AiRecommendationMapper(), mock(Validator.class),
-                mock(MessageUtils.class), productService, wasteRiskService,
+                mock(MessageUtils.class), resourceService, wasteRiskService,
                 new RiskWeightedDiscountStrategy(0.6, 15, 4, 60), eventPublisher, timeProvider, "22:00", 24,
                 new DiscountThenPriorityStrategy(10, 60), 3, 60);
 
-        establishment = new Establishment();
-        establishment.setId(1L);
-        product = new Product();
-        product.setId(10L);
-        product.setName("Pao frances");
-        product.setEstablishment(establishment);
-        product.setStockQuantity(20);
-        product.setOriginalPrice(Money.of(10.00));
-        product.setCurrentPrice(Money.of(10.00));
+        offerer = new Offerer();
+        offerer.setId(1L);
+        resource = new TestResource();
+        resource.setId(10L);
+        resource.setName("Pao frances");
+        resource.setOfferer(offerer);
+        resource.setStockQuantity(20);
+        resource.setOriginalPrice(Money.of(10.00));
+        resource.setCurrentPrice(Money.of(10.00));
 
-        when(productService.findProductOwnedBy(10L, 1L)).thenReturn(product);
+        when(resourceService.findResourceOwnedBy(10L, 1L)).thenReturn(resource);
     }
 
     private WasteRiskDTO risk(boolean atRisk, double percentage, int surplus) {
@@ -100,7 +101,7 @@ class AiRecommendationServiceTest {
     private AiRecommendation pending(Long id, Percentage suggested, LocalDateTime createdAt) {
         AiRecommendation recommendation = AiRecommendation.builder()
                 .id(id)
-                .product(product)
+                .resource(resource)
                 .type(RecommendationType.DISCOUNT)
                 .suggestedPercentage(suggested)
                 .build();
@@ -111,15 +112,15 @@ class AiRecommendationServiceTest {
     // ---------- recommendDiscount ----------
 
     @Test
-    void recommendDiscountCreatesPendingRecommendationForProductAtRisk() {
+    void recommendDiscountCreatesPendingRecommendationForResourceAtRisk() {
         when(wasteRiskService.assess(10L, 1L)).thenReturn(risk(true, 80, 16));
-        when(recommendationRepository.findFirstByProductIdAndStatusAndActiveTrueOrderByCreationDateDesc(
+        when(recommendationRepository.findFirstByResourceIdAndStatusAndActiveTrueOrderByCreationDateDesc(
                 10L, RecommendationStatus.PENDING)).thenReturn(Optional.empty());
 
         DiscountRecommendationDTO dto = service.recommendDiscount(10L, 1L);
 
         assertThat(dto.id()).isEqualTo(500L);
-        assertThat(dto.productId()).isEqualTo(10L);
+        assertThat(dto.resourceId()).isEqualTo(10L);
         assertThat(dto.type()).isEqualTo(RecommendationType.DISCOUNT);
         assertThat(dto.status()).isEqualTo(RecommendationStatus.PENDING);
         assertThat(dto.suggestedPercentage()).isEqualByComparingTo("48.00");
@@ -130,17 +131,17 @@ class AiRecommendationServiceTest {
     }
 
     @Test
-    void recommendDiscountRaisesTheSuggestionWhenTheProductExpiresTomorrow() {
-        product.setExpirationDate(LocalDate.of(2026, 9, 15));
+    void recommendDiscountRaisesTheSuggestionWhenTheResourceExpiresTomorrow() {
+        resource.setExpirationDate(LocalDate.of(2026, 9, 15));
         when(wasteRiskService.assess(10L, 1L)).thenReturn(risk(true, 80, 16));
-        when(recommendationRepository.findFirstByProductIdAndStatusAndActiveTrueOrderByCreationDateDesc(
+        when(recommendationRepository.findFirstByResourceIdAndStatusAndActiveTrueOrderByCreationDateDesc(
                 10L, RecommendationStatus.PENDING)).thenReturn(Optional.empty());
 
         assertThat(service.recommendDiscount(10L, 1L).suggestedPercentage()).isEqualByComparingTo("60.00");
     }
 
     @Test
-    void recommendDiscountRejectsProductThatIsNotAtRisk() {
+    void recommendDiscountRejectsResourceThatIsNotAtRisk() {
         when(wasteRiskService.assess(10L, 1L)).thenReturn(risk(false, 20, 4));
 
         assertThatThrownBy(() -> service.recommendDiscount(10L, 1L))
@@ -150,9 +151,9 @@ class AiRecommendationServiceTest {
     }
 
     @Test
-    void recommendDiscountRejectsASecondPendingRecommendationForTheSameProduct() {
+    void recommendDiscountRejectsASecondPendingRecommendationForTheSameResource() {
         when(wasteRiskService.assess(10L, 1L)).thenReturn(risk(true, 80, 16));
-        when(recommendationRepository.findFirstByProductIdAndStatusAndActiveTrueOrderByCreationDateDesc(
+        when(recommendationRepository.findFirstByResourceIdAndStatusAndActiveTrueOrderByCreationDateDesc(
                 10L, RecommendationStatus.PENDING))
                 .thenReturn(Optional.of(pending(400L, Percentage.of(30), NOW.minusHours(1))));
 
@@ -165,7 +166,7 @@ class AiRecommendationServiceTest {
     void recommendDiscountReplacesAPendingRecommendationThatAlreadyExpired() {
         AiRecommendation stale = pending(400L, Percentage.of(30), NOW.minusHours(25));
         when(wasteRiskService.assess(10L, 1L)).thenReturn(risk(true, 80, 16));
-        when(recommendationRepository.findFirstByProductIdAndStatusAndActiveTrueOrderByCreationDateDesc(
+        when(recommendationRepository.findFirstByResourceIdAndStatusAndActiveTrueOrderByCreationDateDesc(
                 10L, RecommendationStatus.PENDING)).thenReturn(Optional.of(stale));
 
         DiscountRecommendationDTO dto = service.recommendDiscount(10L, 1L);
@@ -175,8 +176,8 @@ class AiRecommendationServiceTest {
     }
 
     @Test
-    void recommendDiscountRejectsProductFromAnotherEstablishment() {
-        when(productService.findProductOwnedBy(10L, 2L)).thenThrow(new EntityNotFoundException(Product.class, 10L));
+    void recommendDiscountRejectsResourceFromAnotherOfferer() {
+        when(resourceService.findResourceOwnedBy(10L, 2L)).thenThrow(new EntityNotFoundException(PerishableResource.class, 10L));
 
         assertThatThrownBy(() -> service.recommendDiscount(10L, 2L)).isInstanceOf(EntityNotFoundException.class);
     }
@@ -184,7 +185,7 @@ class AiRecommendationServiceTest {
     // ---------- respondToRecommendation ----------
 
     @Test
-    void acceptingARecommendationUpdatesTheProductPrice() {
+    void acceptingARecommendationUpdatesTheResourcePrice() {
         AiRecommendation recommendation = pending(500L, Percentage.of(40), NOW.minusHours(1));
         when(recommendationRepository.findById(500L)).thenReturn(Optional.of(recommendation));
 
@@ -194,11 +195,11 @@ class AiRecommendationServiceTest {
         assertThat(dto.status()).isEqualTo(RecommendationStatus.ACCEPTED);
         assertThat(dto.suggestedPercentage()).isEqualByComparingTo("40.00");
         assertThat(dto.respondedAt()).isEqualTo(NOW);
-        verify(productService).applyDiscount(10L, 1L, Percentage.of(40));
+        verify(resourceService).applyDiscount(10L, 1L, Percentage.of(40));
     }
 
     @Test
-    void adjustingARecommendationAppliesTheEstablishmentsOwnPercentage() {
+    void adjustingARecommendationAppliesTheOfferersOwnPercentage() {
         AiRecommendation recommendation = pending(500L, Percentage.of(40), NOW.minusHours(1));
         when(recommendationRepository.findById(500L)).thenReturn(Optional.of(recommendation));
 
@@ -208,7 +209,7 @@ class AiRecommendationServiceTest {
 
         assertThat(dto.status()).isEqualTo(RecommendationStatus.ADJUSTED);
         assertThat(dto.suggestedPercentage()).isEqualByComparingTo("25.00");
-        verify(productService).applyDiscount(10L, 1L, Percentage.of(25));
+        verify(resourceService).applyDiscount(10L, 1L, Percentage.of(25));
     }
 
     @Test
@@ -222,7 +223,7 @@ class AiRecommendationServiceTest {
                 .hasMessageContaining("adjustedPercentage must be informed");
 
         assertThat(recommendation.getStatus()).isEqualTo(RecommendationStatus.PENDING);
-        verify(productService, never()).applyDiscount(any(), any(), any());
+        verify(resourceService, never()).applyDiscount(any(), any(), any());
     }
 
     @Test
@@ -235,7 +236,7 @@ class AiRecommendationServiceTest {
 
         assertThat(dto.status()).isEqualTo(RecommendationStatus.REFUSED);
         assertThat(dto.currentPrice()).isEqualByComparingTo("10.00");
-        verify(productService, never()).applyDiscount(any(), any(), any());
+        verify(resourceService, never()).applyDiscount(any(), any(), any());
     }
 
     @Test
@@ -249,7 +250,7 @@ class AiRecommendationServiceTest {
                 .hasMessageContaining("current status is EXPIRED");
 
         assertThat(recommendation.getStatus()).isEqualTo(RecommendationStatus.EXPIRED);
-        verify(productService, never()).applyDiscount(any(), any(), any());
+        verify(resourceService, never()).applyDiscount(any(), any(), any());
     }
 
     @Test
@@ -265,7 +266,7 @@ class AiRecommendationServiceTest {
     }
 
     @Test
-    void respondingToARecommendationOfAnotherEstablishmentIsRejected() {
+    void respondingToARecommendationOfAnotherOffererIsRejected() {
         when(recommendationRepository.findById(500L))
                 .thenReturn(Optional.of(pending(500L, Percentage.of(40), NOW)));
 
@@ -288,8 +289,8 @@ class AiRecommendationServiceTest {
         assertThat(captor.getValue()).isInstanceOf(DiscountRecommendationRespondedEvent.class);
         DiscountRecommendationRespondedEvent event = (DiscountRecommendationRespondedEvent) captor.getValue();
         assertThat(event.recommendationId()).isEqualTo(500L);
-        assertThat(event.productId()).isEqualTo(10L);
-        assertThat(event.establishmentId()).isEqualTo(1L);
+        assertThat(event.resourceId()).isEqualTo(10L);
+        assertThat(event.offererId()).isEqualTo(1L);
         assertThat(event.status()).isEqualTo(RecommendationStatus.ACCEPTED);
         assertThat(event.appliedPercentage()).isEqualByComparingTo("40.00");
         assertThat(event.recommendationType()).isEqualTo(RecommendationType.DISCOUNT);
@@ -318,10 +319,10 @@ class AiRecommendationServiceTest {
     void findPendingLeavesOutRecommendationsThatJustExpired() {
         AiRecommendation fresh = pending(500L, Percentage.of(40), NOW.minusHours(1));
         AiRecommendation stale = pending(501L, Percentage.of(30), NOW.minusHours(30));
-        when(recommendationRepository.findByProductEstablishmentIdAndStatusAndActiveTrueOrderByCreationDateAsc(
+        when(recommendationRepository.findByResourceOffererIdAndStatusAndActiveTrueOrderByCreationDateAsc(
                 eq(1L), eq(RecommendationStatus.PENDING))).thenReturn(List.of(fresh, stale));
 
-        List<DiscountRecommendationDTO> pendingList = service.findPendingForEstablishment(1L);
+        List<DiscountRecommendationDTO> pendingList = service.findPendingForOfferer(1L);
 
         assertThat(pendingList).extracting(DiscountRecommendationDTO::id).containsExactly(500L);
         assertThat(stale.getStatus()).isEqualTo(RecommendationStatus.EXPIRED);
@@ -329,15 +330,15 @@ class AiRecommendationServiceTest {
     }
 
     @Test
-    void findHistoryReturnsEveryRecommendationOfTheProduct() {
+    void findHistoryReturnsEveryRecommendationOfTheResource() {
         AiRecommendation accepted = pending(500L, Percentage.of(40), NOW.minusDays(2));
         accepted.setStatus(RecommendationStatus.ACCEPTED);
         AiRecommendation refused = pending(501L, Percentage.of(30), NOW.minusDays(3));
         refused.setStatus(RecommendationStatus.REFUSED);
-        when(recommendationRepository.findByProductIdAndActiveTrueOrderByCreationDateDesc(10L))
+        when(recommendationRepository.findByResourceIdAndActiveTrueOrderByCreationDateDesc(10L))
                 .thenReturn(List.of(accepted, refused));
 
-        List<DiscountRecommendationDTO> history = service.findHistoryForProduct(10L, 1L);
+        List<DiscountRecommendationDTO> history = service.findHistoryForResource(10L, 1L);
 
         assertThat(history).extracting(DiscountRecommendationDTO::id).containsExactly(500L, 501L);
         assertThat(history).extracting(DiscountRecommendationDTO::status)
@@ -345,10 +346,10 @@ class AiRecommendationServiceTest {
     }
 
     @Test
-    void findHistoryRejectsProductFromAnotherEstablishment() {
-        when(productService.findProductOwnedBy(10L, 2L)).thenThrow(new EntityNotFoundException(Product.class, 10L));
+    void findHistoryRejectsResourceFromAnotherOfferer() {
+        when(resourceService.findResourceOwnedBy(10L, 2L)).thenThrow(new EntityNotFoundException(PerishableResource.class, 10L));
 
-        assertThatThrownBy(() -> service.findHistoryForProduct(10L, 2L))
+        assertThatThrownBy(() -> service.findHistoryForResource(10L, 2L))
                 .isInstanceOf(EntityNotFoundException.class);
     }
 }

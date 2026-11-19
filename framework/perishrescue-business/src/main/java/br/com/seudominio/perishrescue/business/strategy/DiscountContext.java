@@ -10,7 +10,7 @@ import br.com.seudominio.perishrescue.core.percentage.Percentage;
  * @param stockQuantity       the units currently in stock
  * @param expectedSurplus     the units expected to be left over at closing time
  * @param hoursUntilClosing   hours left until the end of the business day, negative once it has passed
- * @param daysUntilExpiration days left until the product expires, or {@code null} if it has no expiration date
+ * @param daysUntilExpiration days left until the resource expires, or {@code null} if it has no expiration date
  *
  * @author Hugo Jose
  * @since 1.0.0

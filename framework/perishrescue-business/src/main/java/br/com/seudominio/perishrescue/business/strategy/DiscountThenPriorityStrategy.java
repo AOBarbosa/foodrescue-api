@@ -11,7 +11,7 @@ import java.math.RoundingMode;
 /**
  * Initial {@link SurplusDestinationStrategy}: deepen the discount by a fixed
  * step while there is headroom under the maximum discount; once there is not,
- * make the product available with priority.
+ * make the resource available with priority.
  *
  * @author Clovis Medeiros
  * @since 1.0.0

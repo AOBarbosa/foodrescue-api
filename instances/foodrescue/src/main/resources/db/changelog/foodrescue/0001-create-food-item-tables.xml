@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- FoodItem extends the kernel's PerishableResource with JOINED
+         inheritance: food_items holds only the food-specific columns and its
+         primary key is also a foreign key to resources(id). Column set taken
+         from the schema Hibernate generates for these mappings. -->
+
+    <changeSet id="foodrescue-0001-1-create-food-items-table" author="clovis.medeiros">
+        <createTable tableName="food_items">
+            <column name="id" type="BIGINT">
+                <constraints primaryKey="true" primaryKeyName="food_items_pkey" nullable="false"
+                             foreignKeyName="fk_food_items_resource" references="resources(id)"/>
+            </column>
+            <column name="storage_temperature" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="surprise_bag" type="BOOLEAN">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <sql>
+            ALTER TABLE food_items ADD CONSTRAINT food_items_storage_temperature_check
+                CHECK (storage_temperature IN ('AMBIENT', 'REFRIGERATED', 'HEATED'));
+        </sql>
+    </changeSet>
+
+    <changeSet id="foodrescue-0001-2-create-food-item-allergens-table" author="clovis.medeiros">
+        <createTable tableName="food_item_allergens">
+            <column name="food_item_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_food_item_allergens_item"
+                             references="food_items(id)"/>
+            </column>
+            <column name="allergen" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addPrimaryKey tableName="food_item_allergens" columnNames="food_item_id, allergen"
+                       constraintName="food_item_allergens_pkey"/>
+        <sql>
+            ALTER TABLE food_item_allergens ADD CONSTRAINT food_item_allergens_allergen_check
+                CHECK (allergen IN ('GLUTEN', 'LACTOSE', 'EGGS', 'NUTS', 'PEANUTS', 'SOY', 'FISH', 'SHELLFISH'));
+        </sql>
+    </changeSet>
+
+    <!-- Envers history. A JOINED subclass's audit table has no revtype (it
+         lives in resources_aud) and references resources_aud(rev, id). -->
+    <changeSet id="foodrescue-0001-3-create-food-items-aud-table" author="clovis.medeiros">
+        <createTable tableName="food_items_aud">
+            <column name="rev" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="storage_temperature" type="VARCHAR(20)"/>
+            <column name="surprise_bag" type="BOOLEAN"/>
+        </createTable>
+        <addPrimaryKey tableName="food_items_aud" columnNames="rev, id" constraintName="food_items_aud_pkey"/>
+        <addForeignKeyConstraint baseTableName="food_items_aud" baseColumnNames="rev, id"
+                                 referencedTableName="resources_aud" referencedColumnNames="rev, id"
+                                 constraintName="fk_food_items_aud_resources_aud"/>
+    </changeSet>
+
+    <changeSet id="foodrescue-0001-4-create-food-item-allergens-aud-table" author="clovis.medeiros">
+        <createTable tableName="food_item_allergens_aud">
+            <column name="rev" type="INT">
+                <constraints nullable="false" foreignKeyName="fk_food_item_allergens_aud_rev"
+                             references="revinfo(id)"/>
+            </column>
+            <column name="revtype" type="SMALLINT"/>
+            <column name="food_item_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="allergen" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addPrimaryKey tableName="food_item_allergens_aud" columnNames="rev, food_item_id, allergen"
+                       constraintName="food_item_allergens_aud_pkey"/>
+    </changeSet>
+
+</databaseChangeLog>

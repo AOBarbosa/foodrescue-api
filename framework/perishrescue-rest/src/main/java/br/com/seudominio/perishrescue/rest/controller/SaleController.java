@@ -46,14 +46,14 @@ public class SaleController {
     }
 
     /**
-     * Registers a new over-the-counter sale for a product owned by the authenticated establishment.
+     * Registers a new over-the-counter sale for a resource owned by the authenticated offerer.
      *
      * @param dto       the sale registration data
      * @param principal the authenticated principal
      * @return the registered sale
      */
-    @PreAuthorize("hasRole('ROLE_ESTABLISHMENT')")
-    @Operation(summary = "Register a new sale for a product")
+    @PreAuthorize("hasRole('ROLE_OFFERER')")
+    @Operation(summary = "Register a new sale for a resource")
     @PostMapping
     public ResponseEntity<ApiResponse<SaleDTO>> create(
             @Valid @RequestBody RegisterSaleDTO dto,
@@ -68,19 +68,19 @@ public class SaleController {
     }
 
     /**
-     * Fetches a sale by identifier for the authenticated establishment.
+     * Fetches a sale by identifier for the authenticated offerer.
      *
      * @param id        the sale identifier
      * @param principal the authenticated principal
      * @return the sale
      */
-    @PreAuthorize("hasRole('ROLE_ESTABLISHMENT')")
+    @PreAuthorize("hasRole('ROLE_OFFERER')")
     @Operation(summary = "Get a sale by identifier")
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<SaleDTO>> findById(
             @PathVariable Long id,
             @AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        SaleDTO sale = saleService.findByIdForEstablishment(id, principal.id());
+        SaleDTO sale = saleService.findByIdForOfferer(id, principal.id());
         return ResponseEntity.ok(new ApiResponse<>(
                 sale,
                 "Sale retrieved successfully",
@@ -90,23 +90,23 @@ public class SaleController {
     }
 
     /**
-     * Lists sales for a product owned by the authenticated establishment, optionally filtered by period.
+     * Lists sales for a resource owned by the authenticated offerer, optionally filtered by period.
      *
-     * @param productId the product identifier
+     * @param resourceId the resource identifier
      * @param startDate the start timestamp (optional)
      * @param endDate   the end timestamp (optional)
      * @param principal the authenticated principal
      * @return the list of sales
      */
-    @PreAuthorize("hasRole('ROLE_ESTABLISHMENT')")
-    @Operation(summary = "List sales of a product optionally filtered by period")
+    @PreAuthorize("hasRole('ROLE_OFFERER')")
+    @Operation(summary = "List sales of a resource optionally filtered by period")
     @GetMapping
     public ResponseEntity<ApiResponse<List<SaleDTO>>> list(
-            @RequestParam Long productId,
+            @RequestParam Long resourceId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
             @AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        List<SaleDTO> sales = saleService.findSalesByProductAndPeriod(productId, principal.id(), startDate, endDate);
+        List<SaleDTO> sales = saleService.findSalesByResourceAndPeriod(resourceId, principal.id(), startDate, endDate);
         return ResponseEntity.ok(new ApiResponse<>(
                 sales,
                 "Sales retrieved successfully",

@@ -26,9 +26,9 @@ import java.time.LocalDateTime;
 
 /**
  * AiRecommendation. This class represents an AI-generated suggestion for a
- * {@link Product}: either a discount (UC07) or a surplus destination once a
+ * {@link PerishableResource}: either a discount (UC07) or a surplus destination once a
  * discount alone isn't enough (UC10). {@code previousRecommendationId} lets
- * a chain of recommendations for the same product be traced (UC10).
+ * a chain of recommendations for the same resource be traced (UC10).
  *
  * @author Andre Barbosa
  * @since 1.0.0
@@ -48,11 +48,11 @@ public class AiRecommendation extends AbstractEntity {
     private Long id;
 
     /**
-     * The product this recommendation is about.
+     * The resource this recommendation is about.
      */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "product_id", nullable = false)
-    private Product product;
+    @JoinColumn(name = "resource_id", nullable = false)
+    private PerishableResource resource;
 
     /**
      * Kind of recommendation.
@@ -82,7 +82,7 @@ public class AiRecommendation extends AbstractEntity {
     private Long previousRecommendationId;
 
     /**
-     * Moment the establishment responded to the recommendation, if any.
+     * Moment the offerer responded to the recommendation, if any.
      */
     @Column(name = "responded_at")
     private LocalDateTime respondedAt;
@@ -113,12 +113,12 @@ public class AiRecommendation extends AbstractEntity {
         this.id = id;
     }
 
-    public Product getProduct() {
-        return product;
+    public PerishableResource getResource() {
+        return resource;
     }
 
-    public void setProduct(Product product) {
-        this.product = product;
+    public void setResource(PerishableResource resource) {
+        this.resource = resource;
     }
 
     public RecommendationType getType() {
@@ -163,7 +163,7 @@ public class AiRecommendation extends AbstractEntity {
 
     @Override
     public String toString() {
-        return "AiRecommendation [id=" + id + ", productId=" + (product == null ? null : product.getId())
+        return "AiRecommendation [id=" + id + ", resourceId=" + (resource == null ? null : resource.getId())
                 + ", type=" + type + ", status=" + status + "]";
     }
 }

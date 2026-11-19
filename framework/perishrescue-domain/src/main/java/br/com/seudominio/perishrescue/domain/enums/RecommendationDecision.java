@@ -1,7 +1,7 @@
 package br.com.seudominio.perishrescue.domain.enums;
 
 /**
- * What an establishment decided about a pending discount recommendation (UC07).
+ * What an offerer decided about a pending discount recommendation (UC07).
  *
  * <p>Not persisted: it is the intent carried by the request, which the service
  * turns into a {@link RecommendationStatus}.</p>
@@ -14,7 +14,7 @@ public enum RecommendationDecision {
     /** Apply the suggested percentage as it is. */
     ACCEPT,
 
-    /** Apply a different percentage, chosen by the establishment. */
+    /** Apply a different percentage, chosen by the offerer. */
     ADJUST,
 
     /** Apply nothing; the price stays untouched. */

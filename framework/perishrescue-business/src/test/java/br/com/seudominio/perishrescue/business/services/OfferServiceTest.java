@@ -15,14 +15,15 @@ import br.com.seudominio.perishrescue.core.utils.MessageUtils;
 import br.com.seudominio.perishrescue.core.validation.exception.ValidationException;
 import br.com.seudominio.perishrescue.domain.dtos.CreateOfferRequest;
 import br.com.seudominio.perishrescue.domain.dtos.OfferDTO;
-import br.com.seudominio.perishrescue.domain.entities.Establishment;
+import br.com.seudominio.perishrescue.domain.entities.Offerer;
 import br.com.seudominio.perishrescue.domain.entities.Offer;
-import br.com.seudominio.perishrescue.domain.entities.Product;
+import br.com.seudominio.perishrescue.domain.entities.PerishableResource;
 import br.com.seudominio.perishrescue.domain.enums.OfferStatus;
 import br.com.seudominio.perishrescue.domain.exception.BusinessRuleViolationException;
 import br.com.seudominio.perishrescue.domain.exception.EntityNotFoundException;
 import br.com.seudominio.perishrescue.domain.mappers.OfferMapper;
 import br.com.seudominio.perishrescue.persistence.repositories.OfferRepository;
+import br.com.seudominio.perishrescue.domain.testsupport.TestResource;
 
 import jakarta.validation.Validator;
 
@@ -40,16 +41,16 @@ class OfferServiceTest {
     private static final LocalDateTime CLOSING = LocalDateTime.of(2026, 9, 14, 22, 0);
 
     private OfferRepository offerRepository;
-    private ProductService productService;
+    private ResourceService resourceService;
     private OfferService service;
-    private Establishment establishment;
-    private Product product;
+    private Offerer offerer;
+    private PerishableResource resource;
     private long nextId;
 
     @BeforeEach
     void setUp() {
         offerRepository = mock(OfferRepository.class);
-        productService = mock(ProductService.class);
+        resourceService = mock(ResourceService.class);
         TimeProvider timeProvider = mock(TimeProvider.class);
         when(timeProvider.now()).thenReturn(NOW);
 
@@ -68,29 +69,29 @@ class OfferServiceTest {
 
         service = new OfferService(
                 offerRepository, new OfferMapper(), beanValidator, mock(MessageUtils.class),
-                productService, new OfferBusinessValidator(beanValidator, timeProvider),
+                resourceService, new OfferBusinessValidator(beanValidator, timeProvider),
                 timeProvider, "22:00");
 
-        establishment = new Establishment();
-        establishment.setId(1L);
+        offerer = new Offerer();
+        offerer.setId(1L);
 
-        product = new Product();
-        product.setId(10L);
-        product.setName("Pao de queijo");
-        product.setEstablishment(establishment);
-        product.setOriginalPrice(Money.of(10.00));
-        product.setCurrentPrice(Money.of(5.20));
-        product.setStockQuantity(20);
+        resource = new TestResource();
+        resource.setId(10L);
+        resource.setName("Pao de queijo");
+        resource.setOfferer(offerer);
+        resource.setOriginalPrice(Money.of(10.00));
+        resource.setCurrentPrice(Money.of(5.20));
+        resource.setStockQuantity(20);
 
-        when(productService.findProductOwnedBy(10L, 1L)).thenReturn(product);
-        when(offerRepository.findFirstByProductIdAndStatusAndActiveTrueOrderByCreationDateDesc(
+        when(resourceService.findResourceOwnedBy(10L, 1L)).thenReturn(resource);
+        when(offerRepository.findFirstByResourceIdAndStatusAndActiveTrueOrderByCreationDateDesc(
                 10L, OfferStatus.ACTIVE)).thenReturn(Optional.empty());
     }
 
     private Offer activeOffer(Long id, int quantity) {
         Offer offer = Offer.builder()
                 .id(id)
-                .product(product)
+                .resource(resource)
                 .discountedPrice(Money.of(5.20))
                 .availableQuantity(quantity)
                 .expiresAt(CLOSING)
@@ -102,12 +103,12 @@ class OfferServiceTest {
     // ---------- criacao manual ----------
 
     @Test
-    void createOfferFillsEveryFieldFromTheProductWhenOnlyTheIdIsGiven() {
+    void createOfferFillsEveryFieldFromTheResourceWhenOnlyTheIdIsGiven() {
         OfferDTO dto = service.createOffer(new CreateOfferRequest(10L, null, null, null), 1L);
 
         assertThat(dto.id()).isEqualTo(800L);
-        assertThat(dto.productId()).isEqualTo(10L);
-        assertThat(dto.productName()).isEqualTo("Pao de queijo");
+        assertThat(dto.resourceId()).isEqualTo(10L);
+        assertThat(dto.resourceName()).isEqualTo("Pao de queijo");
         assertThat(dto.originalPrice()).isEqualByComparingTo("10.00");
         assertThat(dto.discountedPrice()).isEqualByComparingTo("5.20");
         assertThat(dto.availableQuantity()).isEqualTo(20);
@@ -127,8 +128,8 @@ class OfferServiceTest {
     }
 
     @Test
-    void createOfferRejectsAProductWithoutStock() {
-        product.setStockQuantity(0);
+    void createOfferRejectsAResourceWithoutStock() {
+        resource.setStockQuantity(0);
 
         assertThatThrownBy(() -> service.createOffer(new CreateOfferRequest(10L, null, null, null), 1L))
                 .isInstanceOf(BusinessRuleViolationException.class)
@@ -140,12 +141,12 @@ class OfferServiceTest {
     void createOfferRejectsAQuantityAboveTheStock() {
         assertThatThrownBy(() -> service.createOffer(new CreateOfferRequest(10L, null, 50, null), 1L))
                 .isInstanceOf(BusinessRuleViolationException.class)
-                .hasMessageContaining("exceeds the product stock of 20");
+                .hasMessageContaining("exceeds the resource stock of 20");
     }
 
     @Test
-    void createOfferRejectsASecondActiveOfferForTheSameProduct() {
-        when(offerRepository.findFirstByProductIdAndStatusAndActiveTrueOrderByCreationDateDesc(
+    void createOfferRejectsASecondActiveOfferForTheSameResource() {
+        when(offerRepository.findFirstByResourceIdAndStatusAndActiveTrueOrderByCreationDateDesc(
                 10L, OfferStatus.ACTIVE)).thenReturn(Optional.of(activeOffer(700L, 20)));
 
         assertThatThrownBy(() -> service.createOffer(new CreateOfferRequest(10L, null, null, null), 1L))
@@ -158,7 +159,7 @@ class OfferServiceTest {
         assertThatThrownBy(() -> service.createOffer(new CreateOfferRequest(
                 10L, new BigDecimal("15.00"), null, null), 1L))
                 .isInstanceOf(ValidationException.class)
-                .hasMessageContaining("must not be greater than the product's original price");
+                .hasMessageContaining("must not be greater than the resource's original price");
     }
 
     @Test
@@ -170,8 +171,8 @@ class OfferServiceTest {
     }
 
     @Test
-    void createOfferRejectsAProductFromAnotherEstablishment() {
-        when(productService.findProductOwnedBy(10L, 2L)).thenThrow(new EntityNotFoundException(Product.class, 10L));
+    void createOfferRejectsAResourceFromAnotherOfferer() {
+        when(resourceService.findResourceOwnedBy(10L, 2L)).thenThrow(new EntityNotFoundException(PerishableResource.class, 10L));
 
         assertThatThrownBy(() -> service.createOffer(new CreateOfferRequest(10L, null, null, null), 2L))
                 .isInstanceOf(EntityNotFoundException.class);
@@ -194,7 +195,7 @@ class OfferServiceTest {
     @Test
     void createFromAcceptedDiscountSupersedesTheStaleOffer() {
         Offer stale = activeOffer(700L, 20);
-        when(offerRepository.findFirstByProductIdAndStatusAndActiveTrueOrderByCreationDateDesc(
+        when(offerRepository.findFirstByResourceIdAndStatusAndActiveTrueOrderByCreationDateDesc(
                 10L, OfferStatus.ACTIVE)).thenReturn(Optional.of(stale));
 
         Optional<OfferDTO> dto = service.createFromAcceptedDiscount(10L, 1L);
@@ -207,7 +208,7 @@ class OfferServiceTest {
 
     @Test
     void createFromAcceptedDiscountPublishesNothingWhenThereIsNoStock() {
-        product.setStockQuantity(0);
+        resource.setStockQuantity(0);
 
         assertThat(service.createFromAcceptedDiscount(10L, 1L)).isEmpty();
         verify(offerRepository, never()).save(any(Offer.class));
@@ -280,13 +281,13 @@ class OfferServiceTest {
     }
 
     @Test
-    void closeOffersForDepletedProductClosesEveryOpenOffer() {
+    void closeOffersForDepletedResourceClosesEveryOpenOffer() {
         Offer first = activeOffer(700L, 5);
         Offer second = activeOffer(701L, 3);
-        when(offerRepository.findByProductIdAndStatusAndActiveTrue(10L, OfferStatus.ACTIVE))
+        when(offerRepository.findByResourceIdAndStatusAndActiveTrue(10L, OfferStatus.ACTIVE))
                 .thenReturn(List.of(first, second));
 
-        int closed = service.closeOffersForDepletedProduct(10L);
+        int closed = service.closeOffersForDepletedResource(10L);
 
         assertThat(closed).isEqualTo(2);
         assertThat(first.getStatus()).isEqualTo(OfferStatus.CLOSED);
@@ -294,11 +295,11 @@ class OfferServiceTest {
     }
 
     @Test
-    void closeOffersForDepletedProductIsSafeWhenThereIsNothingOpen() {
-        when(offerRepository.findByProductIdAndStatusAndActiveTrue(10L, OfferStatus.ACTIVE))
+    void closeOffersForDepletedResourceIsSafeWhenThereIsNothingOpen() {
+        when(offerRepository.findByResourceIdAndStatusAndActiveTrue(10L, OfferStatus.ACTIVE))
                 .thenReturn(List.of());
 
-        assertThat(service.closeOffersForDepletedProduct(10L)).isZero();
+        assertThat(service.closeOffersForDepletedResource(10L)).isZero();
         verify(offerRepository, never()).save(any(Offer.class));
     }
 
@@ -322,7 +323,7 @@ class OfferServiceTest {
     }
 
     @Test
-    void closeOfferRejectsAnOfferOfAnotherEstablishment() {
+    void closeOfferRejectsAnOfferOfAnotherOfferer() {
         when(offerRepository.findById(700L)).thenReturn(Optional.of(activeOffer(700L, 5)));
 
         assertThatThrownBy(() -> service.closeOffer(700L, 2L))
@@ -332,11 +333,11 @@ class OfferServiceTest {
     // ---------- listagens ----------
 
     @Test
-    void findAllForEstablishmentReturnsTheEstablishmentsOffers() {
-        when(offerRepository.findByProductEstablishmentIdAndActiveTrueOrderByCreationDateDesc(1L))
+    void findAllForOffererReturnsTheOfferersOffers() {
+        when(offerRepository.findByResourceOffererIdAndActiveTrueOrderByCreationDateDesc(1L))
                 .thenReturn(List.of(activeOffer(701L, 5), activeOffer(700L, 3)));
 
-        assertThat(service.findAllForEstablishment(1L))
+        assertThat(service.findAllForOfferer(1L))
                 .extracting(OfferDTO::id).containsExactly(701L, 700L);
     }
 
@@ -374,7 +375,7 @@ class OfferServiceTest {
     }
 
     @Test
-    void markAsPriorityRejectsOfferFromAnotherEstablishment() {
+    void markAsPriorityRejectsOfferFromAnotherOfferer() {
         Offer offer = activeOffer(700L, 5);
         when(offerRepository.findById(700L)).thenReturn(Optional.of(offer));
 
@@ -385,10 +386,10 @@ class OfferServiceTest {
     @Test
     void markOrPublishPriorityOfferPrioritizesExistingActiveOffer() {
         Offer existing = activeOffer(700L, 5);
-        when(offerRepository.findFirstByProductIdAndStatusAndActiveTrueOrderByCreationDateDesc(10L, OfferStatus.ACTIVE))
+        when(offerRepository.findFirstByResourceIdAndStatusAndActiveTrueOrderByCreationDateDesc(10L, OfferStatus.ACTIVE))
                 .thenReturn(Optional.of(existing));
 
-        Optional<OfferDTO> result = service.markOrPublishPriorityOfferForProduct(10L, 1L);
+        Optional<OfferDTO> result = service.markOrPublishPriorityOfferForResource(10L, 1L);
 
         assertThat(result).isPresent();
         assertThat(result.get().priority()).isTrue();
@@ -398,10 +399,10 @@ class OfferServiceTest {
 
     @Test
     void markOrPublishPriorityOfferPublishesNewPriorityOfferWhenNoneExists() {
-        when(offerRepository.findFirstByProductIdAndStatusAndActiveTrueOrderByCreationDateDesc(10L, OfferStatus.ACTIVE))
+        when(offerRepository.findFirstByResourceIdAndStatusAndActiveTrueOrderByCreationDateDesc(10L, OfferStatus.ACTIVE))
                 .thenReturn(Optional.empty());
 
-        Optional<OfferDTO> result = service.markOrPublishPriorityOfferForProduct(10L, 1L);
+        Optional<OfferDTO> result = service.markOrPublishPriorityOfferForResource(10L, 1L);
 
         assertThat(result).isPresent();
         assertThat(result.get().priority()).isTrue();
@@ -409,9 +410,9 @@ class OfferServiceTest {
 
     @Test
     void markOrPublishPriorityOfferReturnsEmptyWhenStockIsZero() {
-        product.setStockQuantity(0);
+        resource.setStockQuantity(0);
 
-        Optional<OfferDTO> result = service.markOrPublishPriorityOfferForProduct(10L, 1L);
+        Optional<OfferDTO> result = service.markOrPublishPriorityOfferForResource(10L, 1L);
 
         assertThat(result).isEmpty();
         verify(offerRepository, never()).save(any(Offer.class));

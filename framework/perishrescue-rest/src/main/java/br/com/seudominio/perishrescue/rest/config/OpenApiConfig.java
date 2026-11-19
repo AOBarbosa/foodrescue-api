@@ -32,7 +32,7 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title("FoodRescue AI API")
                         .version("0.1.0")
-                        .description("REST API for reducing food waste by connecting establishments' surplus to consumers."))
+                        .description("REST API for reducing food waste by connecting offerers' surplus to beneficiaries."))
                 .addSecurityItem(new SecurityRequirement().addList(BEARER_AUTH))
                 .components(new Components()
                         .addSecuritySchemes(BEARER_AUTH, new SecurityScheme()

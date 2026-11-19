@@ -11,7 +11,7 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
- * Publishes an offer when an establishment accepts a discount recommendation (UC08).
+ * Publishes an offer when an offerer accepts a discount recommendation (UC08).
  *
  * <p>This is the only link between UC07 and UC08, and it points one way:
  * {@code AiRecommendationService} publishes the event and never knows this
@@ -42,7 +42,7 @@ public class DiscountAcceptedListener {
      * the answer actually changed the price.
      *
      * <p>Runs only after the answering transaction commits: a failure here must
-     * never roll back the discount the establishment already accepted. The
+     * never roll back the discount the offerer already accepted. The
      * exception is caught and logged for the same reason.</p>
      *
      * @param event the answered recommendation
@@ -55,21 +55,21 @@ public class DiscountAcceptedListener {
 
         try {
             if (event.recommendationType() == RecommendationType.SURPLUS_DESTINATION) {
-                offerService.markOrPublishPriorityOfferForProduct(event.productId(), event.establishmentId())
+                offerService.markOrPublishPriorityOfferForResource(event.resourceId(), event.offererId())
                         .ifPresentOrElse(
-                                offer -> log.info("Offer {} marked as priority for product {} after recommendation {} was accepted",
-                                        offer.id(), event.productId(), event.recommendationId()),
-                                () -> log.info("No priority offer for product {}: no stock left", event.productId()));
+                                offer -> log.info("Offer {} marked as priority for resource {} after recommendation {} was accepted",
+                                        offer.id(), event.resourceId(), event.recommendationId()),
+                                () -> log.info("No priority offer for resource {}: no stock left", event.resourceId()));
             } else {
-                offerService.createFromAcceptedDiscount(event.productId(), event.establishmentId())
+                offerService.createFromAcceptedDiscount(event.resourceId(), event.offererId())
                         .ifPresentOrElse(
-                                offer -> log.info("Offer {} published for product {} after recommendation {} was {}",
-                                        offer.id(), event.productId(), event.recommendationId(), event.status()),
-                                () -> log.info("No offer published for product {}: no stock left", event.productId()));
+                                offer -> log.info("Offer {} published for resource {} after recommendation {} was {}",
+                                        offer.id(), event.resourceId(), event.recommendationId(), event.status()),
+                                () -> log.info("No offer published for resource {}: no stock left", event.resourceId()));
             }
         } catch (RuntimeException e) {
-            log.error("Failed to process offer for product {} after recommendation {} was {}",
-                    event.productId(), event.recommendationId(), event.status(), e);
+            log.error("Failed to process offer for resource {} after recommendation {} was {}",
+                    event.resourceId(), event.recommendationId(), event.status(), e);
         }
     }
 

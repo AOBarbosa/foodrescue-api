@@ -7,7 +7,7 @@ import br.com.seudominio.perishrescue.core.utils.MessageUtils;
 import br.com.seudominio.perishrescue.core.validation.BusinessOperation;
 import br.com.seudominio.perishrescue.domain.dtos.RegisterSaleDTO;
 import br.com.seudominio.perishrescue.domain.dtos.SaleDTO;
-import br.com.seudominio.perishrescue.domain.entities.Product;
+import br.com.seudominio.perishrescue.domain.entities.PerishableResource;
 import br.com.seudominio.perishrescue.domain.entities.Sale;
 import br.com.seudominio.perishrescue.domain.exception.BusinessRuleViolationException;
 import br.com.seudominio.perishrescue.domain.exception.EntityNotFoundException;
@@ -32,7 +32,7 @@ import java.util.List;
 public class SaleService extends GenericService<Sale, SaleDTO> {
 
     private final SaleRepository saleRepository;
-    private final ProductService productService;
+    private final ResourceService resourceService;
     private final SaleBusinessValidator saleValidator;
     private final TimeProvider timeProvider;
 
@@ -40,7 +40,7 @@ public class SaleService extends GenericService<Sale, SaleDTO> {
      * Constructor.
      *
      * @param repository     the sale repository
-     * @param productService the product service for product ownership and inventory operations
+     * @param resourceService the resource service for resource ownership and inventory operations
      * @param mapper         the sale mapper
      * @param validator      the bean validator
      * @param messageUtils   the message utils
@@ -49,7 +49,7 @@ public class SaleService extends GenericService<Sale, SaleDTO> {
      */
     public SaleService(
             SaleRepository repository,
-            ProductService productService,
+            ResourceService resourceService,
             SaleMapper mapper,
             Validator validator,
             MessageUtils messageUtils,
@@ -57,34 +57,34 @@ public class SaleService extends GenericService<Sale, SaleDTO> {
             TimeProvider timeProvider) {
         super(repository, mapper, validator, messageUtils);
         this.saleRepository = repository;
-        this.productService = productService;
+        this.resourceService = resourceService;
         this.saleValidator = saleValidator;
         this.timeProvider = timeProvider;
     }
 
     /**
-     * Registers a new sale for a product owned by the authenticated establishment.
-     * Deducts the product stock quantity via {@link ProductService} and records the sale.
+     * Registers a new sale for a resource owned by the authenticated offerer.
+     * Deducts the resource stock quantity via {@link ResourceService} and records the sale.
      *
      * @param dto             the sale registration data
-     * @param establishmentId the authenticated establishment identifier
+     * @param offererId the authenticated offerer identifier
      * @return the registered sale DTO
-     * @throws EntityNotFoundException        if the product is not found or owned by another establishment
+     * @throws EntityNotFoundException        if the resource is not found or owned by another offerer
      * @throws BusinessRuleViolationException if the stock quantity is insufficient
      */
-    public SaleDTO registerSale(RegisterSaleDTO dto, Long establishmentId) {
-        Product product = productService.deductStock(dto.productId(), establishmentId, dto.quantity());
+    public SaleDTO registerSale(RegisterSaleDTO dto, Long offererId) {
+        PerishableResource resource = resourceService.deductStock(dto.resourceId(), offererId, dto.quantity());
 
         Money unitPrice = (dto.unitPrice() != null)
                 ? Money.of(dto.unitPrice())
-                : product.getCurrentPrice();
+                : resource.getCurrentPrice();
 
         LocalDateTime soldAt = (dto.soldAt() != null)
                 ? dto.soldAt()
                 : timeProvider.now();
 
         Sale sale = Sale.builder()
-                .product(product)
+                .resource(resource)
                 .quantity(dto.quantity())
                 .unitPrice(unitPrice)
                 .soldAt(soldAt)
@@ -97,49 +97,49 @@ public class SaleService extends GenericService<Sale, SaleDTO> {
     }
 
     /**
-     * Finds active sales for a product owned by the authenticated establishment,
+     * Finds active sales for a resource owned by the authenticated offerer,
      * optionally filtered by date range.
      *
-     * @param productId       the product identifier
-     * @param establishmentId the authenticated establishment identifier
+     * @param resourceId       the resource identifier
+     * @param offererId the authenticated offerer identifier
      * @param startDate       the start timestamp (optional)
      * @param endDate         the end timestamp (optional)
      * @return the list of sales DTOs
-     * @throws EntityNotFoundException        if the product is not found or owned by another establishment
+     * @throws EntityNotFoundException        if the resource is not found or owned by another offerer
      * @throws BusinessRuleViolationException if startDate is after endDate
      */
     @Transactional(readOnly = true)
-    public List<SaleDTO> findSalesByProductAndPeriod(
-            Long productId,
-            Long establishmentId,
+    public List<SaleDTO> findSalesByResourceAndPeriod(
+            Long resourceId,
+            Long offererId,
             LocalDateTime startDate,
             LocalDateTime endDate) {
-        productService.findProductOwnedBy(productId, establishmentId);
+        resourceService.findResourceOwnedBy(resourceId, offererId);
 
         if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
             throw new BusinessRuleViolationException("startDate must not be after endDate");
         }
 
-        return saleRepository.findByProductAndPeriod(productId, startDate, endDate)
+        return saleRepository.findByResourceAndPeriod(resourceId, startDate, endDate)
                 .stream()
                 .map(dtoMapper::toDto)
                 .toList();
     }
 
     /**
-     * Finds a sale by ID ensuring it belongs to the authenticated establishment.
+     * Finds a sale by ID ensuring it belongs to the authenticated offerer.
      *
      * @param id              the sale identifier
-     * @param establishmentId the authenticated establishment identifier
+     * @param offererId the authenticated offerer identifier
      * @return the sale DTO
-     * @throws EntityNotFoundException if the sale is not found or belongs to another establishment
+     * @throws EntityNotFoundException if the sale is not found or belongs to another offerer
      */
     @Transactional(readOnly = true)
-    public SaleDTO findByIdForEstablishment(Long id, Long establishmentId) {
+    public SaleDTO findByIdForOfferer(Long id, Long offererId) {
         Sale sale = saleRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException(Sale.class, id));
 
-        if (!sale.getProduct().getEstablishment().getId().equals(establishmentId)) {
+        if (!sale.getResource().getOfferer().getId().equals(offererId)) {
             throw new EntityNotFoundException(Sale.class, id);
         }
 

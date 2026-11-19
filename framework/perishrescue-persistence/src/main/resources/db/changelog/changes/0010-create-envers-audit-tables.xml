@@ -14,10 +14,10 @@
          modification_date) or @Version columns, so those are intentionally
          absent from every "*_aud" table below. -->
 
-    <changeSet id="0010-1-create-establishments-aud-table" author="andre.barbosa">
-        <createTable tableName="establishments_aud">
+    <changeSet id="0010-1-create-offerers-aud-table" author="andre.barbosa">
+        <createTable tableName="offerers_aud">
             <column name="rev" type="INT">
-                <constraints nullable="false" foreignKeyName="fk_establishments_aud_rev" references="revinfo(id)"/>
+                <constraints nullable="false" foreignKeyName="fk_offerers_aud_rev" references="revinfo(id)"/>
             </column>
             <column name="revtype" type="SMALLINT"/>
             <column name="id" type="BIGINT">
@@ -25,24 +25,26 @@
             </column>
             <column name="address" type="VARCHAR(255)"/>
             <column name="category" type="VARCHAR(255)"/>
+            <column name="opening_time" type="TIME"/>
+            <column name="closing_time" type="TIME"/>
             <column name="cnpj" type="VARCHAR(255)"/>
             <column name="email" type="VARCHAR(255)"/>
             <column name="name" type="VARCHAR(255)"/>
             <column name="password_hash" type="VARCHAR(255)"/>
         </createTable>
-        <addPrimaryKey tableName="establishments_aud" columnNames="rev, id" constraintName="establishments_aud_pkey"/>
+        <addPrimaryKey tableName="offerers_aud" columnNames="rev, id" constraintName="offerers_aud_pkey"/>
     </changeSet>
 
-    <changeSet id="0010-2-create-products-aud-table" author="andre.barbosa">
-        <createTable tableName="products_aud">
+    <changeSet id="0010-2-create-resources-aud-table" author="andre.barbosa">
+        <createTable tableName="resources_aud">
             <column name="rev" type="INT">
-                <constraints nullable="false" foreignKeyName="fk_products_aud_rev" references="revinfo(id)"/>
+                <constraints nullable="false" foreignKeyName="fk_resources_aud_rev" references="revinfo(id)"/>
             </column>
             <column name="revtype" type="SMALLINT"/>
             <column name="id" type="BIGINT">
                 <constraints nullable="false"/>
             </column>
-            <column name="establishment_id" type="BIGINT"/>
+            <column name="offerer_id" type="BIGINT"/>
             <column name="name" type="VARCHAR(255)"/>
             <column name="category" type="VARCHAR(255)"/>
             <column name="original_price" type="NUMERIC(38,2)"/>
@@ -51,7 +53,7 @@
             <column name="stock_quantity" type="INT"/>
             <column name="expiration_date" type="DATE"/>
         </createTable>
-        <addPrimaryKey tableName="products_aud" columnNames="rev, id" constraintName="products_aud_pkey"/>
+        <addPrimaryKey tableName="resources_aud" columnNames="rev, id" constraintName="resources_aud_pkey"/>
     </changeSet>
 
     <changeSet id="0010-3-create-sales-aud-table" author="andre.barbosa">
@@ -63,7 +65,7 @@
             <column name="id" type="BIGINT">
                 <constraints nullable="false"/>
             </column>
-            <column name="product_id" type="BIGINT"/>
+            <column name="resource_id" type="BIGINT"/>
             <column name="quantity" type="INT"/>
             <column name="unit_price" type="NUMERIC(38,2)"/>
             <column name="sold_at" type="TIMESTAMP(6)"/>
@@ -80,7 +82,7 @@
             <column name="id" type="BIGINT">
                 <constraints nullable="false"/>
             </column>
-            <column name="product_id" type="BIGINT"/>
+            <column name="resource_id" type="BIGINT"/>
             <column name="discounted_price" type="NUMERIC(38,2)"/>
             <column name="available_quantity" type="INT"/>
             <column name="expires_at" type="TIMESTAMP(6)"/>
@@ -100,17 +102,17 @@
                 <constraints nullable="false"/>
             </column>
             <column name="offer_id" type="BIGINT"/>
-            <column name="consumer_id" type="BIGINT"/>
+            <column name="beneficiary_id" type="BIGINT"/>
             <column name="quantity" type="INT"/>
             <column name="status" type="VARCHAR(255)"/>
         </createTable>
         <addPrimaryKey tableName="offer_orders_aud" columnNames="rev, id" constraintName="offer_orders_aud_pkey"/>
     </changeSet>
 
-    <changeSet id="0010-6-create-consumers-aud-table" author="andre.barbosa">
-        <createTable tableName="consumers_aud">
+    <changeSet id="0010-6-create-beneficiaries-aud-table" author="andre.barbosa">
+        <createTable tableName="beneficiaries_aud">
             <column name="rev" type="INT">
-                <constraints nullable="false" foreignKeyName="fk_consumers_aud_rev" references="revinfo(id)"/>
+                <constraints nullable="false" foreignKeyName="fk_beneficiaries_aud_rev" references="revinfo(id)"/>
             </column>
             <column name="revtype" type="SMALLINT"/>
             <column name="id" type="BIGINT">
@@ -118,9 +120,10 @@
             </column>
             <column name="email" type="VARCHAR(255)"/>
             <column name="name" type="VARCHAR(255)"/>
+            <column name="document" type="VARCHAR(11)"/>
             <column name="password_hash" type="VARCHAR(255)"/>
         </createTable>
-        <addPrimaryKey tableName="consumers_aud" columnNames="rev, id" constraintName="consumers_aud_pkey"/>
+        <addPrimaryKey tableName="beneficiaries_aud" columnNames="rev, id" constraintName="beneficiaries_aud_pkey"/>
     </changeSet>
 
     <changeSet id="0010-7-create-ai-recommendations-aud-table" author="andre.barbosa">
@@ -132,7 +135,7 @@
             <column name="id" type="BIGINT">
                 <constraints nullable="false"/>
             </column>
-            <column name="product_id" type="BIGINT"/>
+            <column name="resource_id" type="BIGINT"/>
             <column name="type" type="VARCHAR(255)"/>
             <column name="suggested_percentage" type="NUMERIC(38,2)"/>
             <column name="status" type="VARCHAR(255)"/>
@@ -144,8 +147,6 @@
 
     <changeSet id="0010-8-audit-tables-checks" author="andre.barbosa">
         <sql>
-            ALTER TABLE establishments_aud ADD CONSTRAINT establishments_aud_category_check
-                CHECK (category IN ('BAKERY', 'RESTAURANT', 'MARKET', 'SNACK_BAR'));
             ALTER TABLE offers_aud ADD CONSTRAINT offers_aud_status_check
                 CHECK (status IN ('ACTIVE', 'CLOSED'));
             ALTER TABLE offer_orders_aud ADD CONSTRAINT offer_orders_aud_status_check

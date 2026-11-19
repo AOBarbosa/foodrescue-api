@@ -24,12 +24,12 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 /**
- * Controller for consumer reservations/purchases of surplus offers (UC09).
+ * Controller for beneficiary reservations/purchases of surplus offers (UC09).
  *
  * @author Andre Barbosa
  * @since 1.0.0
  */
-@Tag(name = "Offer Orders", description = "Consumer reservations and purchases of surplus offers")
+@Tag(name = "Offer Orders", description = "Beneficiary reservations and purchases of surplus offers")
 @RestController
 @RequestMapping("/offer-orders")
 public class OfferOrderController {
@@ -46,13 +46,13 @@ public class OfferOrderController {
     }
 
     /**
-     * Reserves/purchases units of an active offer for the authenticated consumer.
+     * Reserves/purchases units of an active offer for the authenticated beneficiary.
      *
      * @param request   the reservation request containing the offer id and quantity
      * @param principal the authenticated principal
      * @return the created reservation
      */
-    @PreAuthorize("hasRole('ROLE_CONSUMER')")
+    @PreAuthorize("hasRole('ROLE_BENEFICIARY')")
     @Operation(summary = "Reserve units of an active offer")
     @PostMapping
     public ResponseEntity<ApiResponse<OfferOrderDTO>> reserve(
@@ -66,38 +66,38 @@ public class OfferOrderController {
     }
 
     /**
-     * Lists the authenticated consumer's reservations, newest first.
+     * Lists the authenticated beneficiary's reservations, newest first.
      *
      * @param principal the authenticated principal
-     * @return the consumer's reservations
+     * @return the beneficiary's reservations
      */
-    @PreAuthorize("hasRole('ROLE_CONSUMER')")
-    @Operation(summary = "List the reservations of the authenticated consumer")
+    @PreAuthorize("hasRole('ROLE_BENEFICIARY')")
+    @Operation(summary = "List the reservations of the authenticated beneficiary")
     @GetMapping
     public ResponseEntity<ApiResponse<List<OfferOrderDTO>>> list(
             @AuthenticationPrincipal AuthenticatedPrincipal principal) {
         return ResponseEntity.ok(new ApiResponse<>(
-                offerOrderService.findAllForConsumer(principal.id()),
+                offerOrderService.findAllForBeneficiary(principal.id()),
                 "Offer orders retrieved successfully",
                 true,
                 null));
     }
 
     /**
-     * Fetches one reservation of the authenticated consumer.
+     * Fetches one reservation of the authenticated beneficiary.
      *
      * @param id        the reservation id
      * @param principal the authenticated principal
      * @return the reservation
      */
-    @PreAuthorize("hasRole('ROLE_CONSUMER')")
-    @Operation(summary = "Get a reservation of the authenticated consumer")
+    @PreAuthorize("hasRole('ROLE_BENEFICIARY')")
+    @Operation(summary = "Get a reservation of the authenticated beneficiary")
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<OfferOrderDTO>> findById(
             @PathVariable Long id,
             @AuthenticationPrincipal AuthenticatedPrincipal principal) {
         return ResponseEntity.ok(new ApiResponse<>(
-                offerOrderService.findByIdForConsumer(id, principal.id()),
+                offerOrderService.findByIdForBeneficiary(id, principal.id()),
                 "Offer order retrieved successfully",
                 true,
                 null));

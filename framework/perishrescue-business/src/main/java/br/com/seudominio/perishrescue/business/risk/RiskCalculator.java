@@ -3,7 +3,7 @@ package br.com.seudominio.perishrescue.business.risk;
 import br.com.seudominio.perishrescue.core.percentage.Percentage;
 
 /**
- * Formula that turns a product's stock and its forecast demand into a waste
+ * Formula that turns a resource's stock and its forecast demand into a waste
  * risk percentage (UC06).
  *
  * <p>Keeping the formula behind this interface lets it be replaced (a more
@@ -21,7 +21,7 @@ import br.com.seudominio.perishrescue.core.percentage.Percentage;
 public interface RiskCalculator {
 
     /**
-     * Calculates the waste risk of a product.
+     * Calculates the waste risk of a resource.
      *
      * @param stockQuantity     the units currently in stock
      * @param predictedQuantity the units expected to be sold until closing time

@@ -6,14 +6,14 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Input handed to a {@link DemandForecastStrategy}: the product's
+ * Input handed to a {@link DemandForecastStrategy}: the resource's
  * description, sales history, current stock and the forecast window (from
  * {@code now} until {@code closingAt}).
  *
- * @param productName     the product's name
- * @param productCategory the product's category
- * @param salesHistory the product's past sales, oldest first
- * @param currentStock the product's current stock quantity
+ * @param resourceName     the resource's name
+ * @param resourceCategory the resource's category
+ * @param salesHistory the resource's past sales, oldest first
+ * @param currentStock the resource's current stock quantity
  * @param now          the moment the forecast is calculated
  * @param closingAt    the end of the business day
  *
@@ -21,8 +21,8 @@ import java.util.List;
  * @since 1.0.0
  */
 public record ForecastContext(
-        String productName,
-        String productCategory,
+        String resourceName,
+        String resourceCategory,
         List<Sale> salesHistory,
         int currentStock,
         LocalDateTime now,
@@ -42,39 +42,39 @@ public record ForecastContext(
      */
     public static class Builder {
 
-        private String productName;
-        private String productCategory;
+        private String resourceName;
+        private String resourceCategory;
         private List<Sale> salesHistory = List.of();
         private int currentStock;
         private LocalDateTime now;
         private LocalDateTime closingAt;
 
         /**
-         * Sets the product's name.
+         * Sets the resource's name.
          *
-         * @param productName the product's name
+         * @param resourceName the resource's name
          * @return the current instance of {@link Builder}
          */
-        public Builder productName(String productName) {
-            this.productName = productName;
+        public Builder resourceName(String resourceName) {
+            this.resourceName = resourceName;
             return this;
         }
 
         /**
-         * Sets the product's category.
+         * Sets the resource's category.
          *
-         * @param productCategory the product's category
+         * @param resourceCategory the resource's category
          * @return the current instance of {@link Builder}
          */
-        public Builder productCategory(String productCategory) {
-            this.productCategory = productCategory;
+        public Builder resourceCategory(String resourceCategory) {
+            this.resourceCategory = resourceCategory;
             return this;
         }
 
         /**
-         * Sets the product's past sales.
+         * Sets the resource's past sales.
          *
-         * @param salesHistory the product's past sales, oldest first
+         * @param salesHistory the resource's past sales, oldest first
          * @return the current instance of {@link Builder}
          */
         public Builder salesHistory(List<Sale> salesHistory) {
@@ -83,9 +83,9 @@ public record ForecastContext(
         }
 
         /**
-         * Sets the product's current stock quantity.
+         * Sets the resource's current stock quantity.
          *
-         * @param currentStock the product's current stock quantity
+         * @param currentStock the resource's current stock quantity
          * @return the current instance of {@link Builder}
          */
         public Builder currentStock(int currentStock) {
@@ -121,7 +121,7 @@ public record ForecastContext(
          * @return a new instance of {@link ForecastContext}
          */
         public ForecastContext build() {
-            return new ForecastContext(productName, productCategory, salesHistory, currentStock, now, closingAt);
+            return new ForecastContext(resourceName, resourceCategory, salesHistory, currentStock, now, closingAt);
         }
     }
 }

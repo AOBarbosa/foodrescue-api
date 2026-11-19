@@ -10,8 +10,8 @@
             <column name="id" type="BIGINT">
                 <constraints primaryKey="true" primaryKeyName="ai_recommendations_pkey" nullable="false"/>
             </column>
-            <column name="product_id" type="BIGINT">
-                <constraints nullable="false" foreignKeyName="fk_ai_recommendations_product" references="products(id)"/>
+            <column name="resource_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_ai_recommendations_resource" references="resources(id)"/>
             </column>
             <column name="type" type="VARCHAR(255)">
                 <constraints nullable="false"/>

@@ -6,12 +6,12 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * An offer of surplus published to consumers (UC08).
+ * An offer of surplus published to beneficiaries (UC08).
  *
- * @param productId         the offered product's identifier
- * @param productName       the offered product's name
- * @param originalPrice     the product's list price, shown as the "from" price
- * @param discountedPrice   the price the consumer pays
+ * @param resourceId         the offered resource's identifier
+ * @param resourceName       the offered resource's name
+ * @param originalPrice     the resource's list price, shown as the "from" price
+ * @param discountedPrice   the price the beneficiary pays
  * @param availableQuantity units still available in this offer
  * @param expiresAt         the moment the offer stops accepting orders
  * @param status            {@code ACTIVE} while it can be ordered, {@code CLOSED} otherwise
@@ -24,8 +24,8 @@ import java.time.LocalDateTime;
  */
 public record OfferDTO(
         Long id,
-        Long productId,
-        String productName,
+        Long resourceId,
+        String resourceName,
         BigDecimal originalPrice,
         BigDecimal discountedPrice,
         int availableQuantity,

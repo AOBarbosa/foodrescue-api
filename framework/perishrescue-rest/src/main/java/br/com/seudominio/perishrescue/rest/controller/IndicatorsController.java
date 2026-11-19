@@ -26,7 +26,7 @@ import java.time.LocalDate;
  * @author Clovis Luan
  * @since 1.0.0
  */
-@Tag(name = "Indicators", description = "Consolidated impact and waste-reduction indicators for establishments")
+@Tag(name = "Indicators", description = "Consolidated impact and waste-reduction indicators for offerers")
 @RestController
 @RequestMapping("/indicators")
 public class IndicatorsController {
@@ -43,7 +43,7 @@ public class IndicatorsController {
     }
 
     /**
-     * Retrieves the consolidated impact indicators for the authenticated establishment.
+     * Retrieves the consolidated impact indicators for the authenticated offerer.
      *
      * @param period    the predefined period type (DAY, WEEK, MONTH - defaults to MONTH)
      * @param startDate the custom start date (optional, ISO format YYYY-MM-DD)
@@ -52,8 +52,8 @@ public class IndicatorsController {
      * @param principal the authenticated principal
      * @return the indicators response
      */
-    @PreAuthorize("hasRole('ROLE_ESTABLISHMENT')")
-    @Operation(summary = "Retrieve consolidated waste and savings indicators for the establishment")
+    @PreAuthorize("hasRole('ROLE_OFFERER')")
+    @Operation(summary = "Retrieve consolidated waste and savings indicators for the offerer")
     @GetMapping
     public ResponseEntity<ApiResponse<WasteAndSavingsIndicatorsDTO>> getIndicators(
             @RequestParam(required = false) IndicatorPeriod period,

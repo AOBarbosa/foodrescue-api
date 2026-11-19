@@ -52,8 +52,8 @@ class GeminiDemandForecastStrategyTest {
                     .build());
         }
         return ForecastContext.builder()
-                .productName("Pão de queijo")
-                .productCategory("salgado")
+                .resourceName("Pão de queijo")
+                .resourceCategory("salgado")
                 .salesHistory(history)
                 .currentStock(stock)
                 .now(now)
@@ -79,7 +79,7 @@ class GeminiDemandForecastStrategyTest {
     }
 
     @Test
-    void sendsProductAndDailyHistoryInPrompt() throws Exception {
+    void sendsResourceAndDailyHistoryInPrompt() throws Exception {
         answer("{\"predictedQuantity\": 5, \"confidence\": \"HIGH\", \"rationale\": \"ok\"}");
 
         strategy.forecast(context(30, NOW));

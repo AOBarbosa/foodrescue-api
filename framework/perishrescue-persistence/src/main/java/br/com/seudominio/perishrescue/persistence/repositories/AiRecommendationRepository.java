@@ -24,78 +24,78 @@ import java.util.Optional;
 public interface AiRecommendationRepository extends GenericRepository<AiRecommendation> {
 
     /**
-     * Finds the whole recommendation history of a product, newest first (UC07).
+     * Finds the whole recommendation history of a resource, newest first (UC07).
      *
-     * @param productId the product id
-     * @return every active recommendation made for the product
+     * @param resourceId the resource id
+     * @return every active recommendation made for the resource
      */
-    List<AiRecommendation> findByProductIdAndActiveTrueOrderByCreationDateDesc(Long productId);
+    List<AiRecommendation> findByResourceIdAndActiveTrueOrderByCreationDateDesc(Long resourceId);
 
     /**
-     * Finds the recommendations of an establishment in a given status, oldest
-     * first, so the establishment answers the ones that have waited longest (UC07).
+     * Finds the recommendations of an offerer in a given status, oldest
+     * first, so the offerer answers the ones that have waited longest (UC07).
      *
-     * @param establishmentId the establishment id
+     * @param offererId the offerer id
      * @param status          the status to filter by
      * @return the matching recommendations
      */
-    List<AiRecommendation> findByProductEstablishmentIdAndStatusAndActiveTrueOrderByCreationDateAsc(
-            Long establishmentId, RecommendationStatus status);
+    List<AiRecommendation> findByResourceOffererIdAndStatusAndActiveTrueOrderByCreationDateAsc(
+            Long offererId, RecommendationStatus status);
 
     /**
-     * Finds the most recent recommendation of a product in a given status, used
+     * Finds the most recent recommendation of a resource in a given status, used
      * to stop a second pending recommendation from being created (UC07).
      *
-     * @param productId the product id
+     * @param resourceId the resource id
      * @param status    the status to filter by
      * @return the most recent matching recommendation, if any
      */
-    Optional<AiRecommendation> findFirstByProductIdAndStatusAndActiveTrueOrderByCreationDateDesc(
-            Long productId, RecommendationStatus status);
+    Optional<AiRecommendation> findFirstByResourceIdAndStatusAndActiveTrueOrderByCreationDateDesc(
+            Long resourceId, RecommendationStatus status);
 
     /**
-     * Finds the active discount recommendations of an establishment responded within a period,
+     * Finds the active discount recommendations of an offerer responded within a period,
      * oldest first (UC12).
      *
      * <p>Filters by type {@code DISCOUNT} to avoid mixing with future surplus destination recommendations.</p>
      *
-     * @param establishmentId the establishment identifier
+     * @param offererId the offerer identifier
      * @param start           the start timestamp of the period (inclusive)
      * @param end             the end timestamp of the period (exclusive)
      * @return the discount recommendations responded within the period
      */
-    @Query("SELECT r FROM AiRecommendation r JOIN r.product p WHERE p.establishment.id = :establishmentId "
+    @Query("SELECT r FROM AiRecommendation r JOIN r.resource p WHERE p.offerer.id = :offererId "
             + "AND r.active = true AND r.respondedAt >= :start AND r.respondedAt < :end "
             + "AND r.type = br.com.seudominio.perishrescue.domain.enums.RecommendationType.DISCOUNT "
             + "ORDER BY r.respondedAt ASC")
-    List<AiRecommendation> findRespondedByEstablishmentAndPeriod(
-            @Param("establishmentId") Long establishmentId,
+    List<AiRecommendation> findRespondedByOffererAndPeriod(
+            @Param("offererId") Long offererId,
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end);
 
     /**
-     * Finds the latest recommendation of every product that has already been
+     * Finds the latest recommendation of every resource that has already been
      * answered or has expired since a given moment, i.e. the tail of each
-     * product's chain of the day, ready to be followed by a new one (UC10).
+     * resource's chain of the day, ready to be followed by a new one (UC10).
      *
      * @param since the start of the period considered (usually the start of the day)
      * @return the tail recommendations that are no longer pending
      */
-    @Query("SELECT r FROM AiRecommendation r WHERE r.active = true AND r.product.active = true "
+    @Query("SELECT r FROM AiRecommendation r WHERE r.active = true AND r.resource.active = true "
             + "AND r.status <> br.com.seudominio.perishrescue.domain.enums.RecommendationStatus.PENDING "
             + "AND r.creationDate >= :since "
             + "AND NOT EXISTS (SELECT 1 FROM AiRecommendation n WHERE n.active = true "
-            + "AND n.product.id = r.product.id AND n.creationDate > r.creationDate)")
+            + "AND n.resource.id = r.resource.id AND n.creationDate > r.creationDate)")
     List<AiRecommendation> findChainTailsSince(@Param("since") LocalDateTime since);
 
     /**
-     * Finds the recommendations of a product made since a given moment,
+     * Finds the recommendations of a resource made since a given moment,
      * oldest first, so the chain can be read in order (UC10).
      *
-     * @param productId the product id
+     * @param resourceId the resource id
      * @param since     the start of the period considered
-     * @return the product's recommendations in chronological order
+     * @return the resource's recommendations in chronological order
      */
-    List<AiRecommendation> findByProductIdAndCreationDateGreaterThanEqualAndActiveTrueOrderByCreationDateAsc(
-            Long productId, LocalDateTime since);
+    List<AiRecommendation> findByResourceIdAndCreationDateGreaterThanEqualAndActiveTrueOrderByCreationDateAsc(
+            Long resourceId, LocalDateTime since);
 }

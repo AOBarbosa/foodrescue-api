@@ -57,7 +57,7 @@ public class SaleMapper implements DTOMapper<Sale, SaleDTO> {
 
         return new SaleDTO(
                 sale.getId(),
-                sale.getProduct() != null ? sale.getProduct().getId() : null,
+                sale.getResource() != null ? sale.getResource().getId() : null,
                 sale.getQuantity(),
                 unitPriceAmount,
                 totalPrice,

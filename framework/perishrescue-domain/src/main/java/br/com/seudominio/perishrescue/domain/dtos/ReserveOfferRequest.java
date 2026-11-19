@@ -7,7 +7,7 @@ import jakarta.validation.constraints.Positive;
  * Request payload for reserving/purchasing an active offer (UC09).
  *
  * @param offerId  the identifier of the offer being reserved
- * @param quantity the quantity desired by the consumer (must be greater than zero)
+ * @param quantity the quantity desired by the beneficiary (must be greater than zero)
  *
  * @author Andre Barbosa
  * @since 1.0.0

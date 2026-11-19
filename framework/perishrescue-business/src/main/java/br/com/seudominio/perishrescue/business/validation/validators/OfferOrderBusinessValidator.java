@@ -12,8 +12,8 @@ import org.springframework.stereotype.Component;
 /**
  * Business validator for {@link OfferOrder} (UC09).
  *
- * <p>Guards the invariants of a consumer reservation: it always references an
- * offer and a consumer, has a positive quantity, and carries a status.</p>
+ * <p>Guards the invariants of a beneficiary reservation: it always references an
+ * offer and a beneficiary, has a positive quantity, and carries a status.</p>
  *
  * @author Andre Barbosa
  * @since 1.0.0
@@ -47,7 +47,7 @@ public class OfferOrderBusinessValidator extends AbstractValidator<OfferOrder>
                 "CONSTRAINT_VIOLATION"));
 
         validateOffer(order);
-        validateConsumer(order);
+        validateBeneficiary(order);
         validateQuantity(order);
         validateStatus(order);
     }
@@ -63,9 +63,9 @@ public class OfferOrderBusinessValidator extends AbstractValidator<OfferOrder>
         }
     }
 
-    private void validateConsumer(OfferOrder order) {
-        if (order.getConsumer() == null) {
-            addError("offerOrder must reference a consumer", "consumer", null, "ORDER_WITHOUT_CONSUMER");
+    private void validateBeneficiary(OfferOrder order) {
+        if (order.getBeneficiary() == null) {
+            addError("offerOrder must reference a beneficiary", "beneficiary", null, "ORDER_WITHOUT_BENEFICIARY");
         }
     }
 

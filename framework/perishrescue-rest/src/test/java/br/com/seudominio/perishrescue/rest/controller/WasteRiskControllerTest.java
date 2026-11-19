@@ -27,11 +27,11 @@ class WasteRiskControllerTest {
     void setUp() {
         wasteRiskService = mock(WasteRiskService.class);
         controller = new WasteRiskController(wasteRiskService);
-        principal = new AuthenticatedPrincipal(1L, UserRole.ESTABLISHMENT);
+        principal = new AuthenticatedPrincipal(1L, UserRole.OFFERER);
     }
 
     @Test
-    void assessUsesAuthenticatedEstablishment() {
+    void assessUsesAuthenticatedOfferer() {
         WasteRiskDTO risk = mock(WasteRiskDTO.class);
         when(wasteRiskService.assess(10L, 1L)).thenReturn(risk);
 
@@ -45,14 +45,14 @@ class WasteRiskControllerTest {
     }
 
     @Test
-    void listForwardsTheAtRiskOnlyFilterOfTheAuthenticatedEstablishment() {
+    void listForwardsTheAtRiskOnlyFilterOfTheAuthenticatedOfferer() {
         List<WasteRiskDTO> risks = List.of(mock(WasteRiskDTO.class));
-        when(wasteRiskService.findAllForEstablishment(1L, false)).thenReturn(risks);
+        when(wasteRiskService.findAllForOfferer(1L, false)).thenReturn(risks);
 
         ResponseEntity<ApiResponse<List<WasteRiskDTO>>> response = controller.list(false, principal);
 
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().data()).isSameAs(risks);
-        verify(wasteRiskService).findAllForEstablishment(1L, false);
+        verify(wasteRiskService).findAllForOfferer(1L, false);
     }
 }

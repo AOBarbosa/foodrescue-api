@@ -4,7 +4,7 @@ import br.com.seudominio.perishrescue.core.money.Money;
 import br.com.seudominio.perishrescue.core.percentage.Percentage;
 import br.com.seudominio.perishrescue.domain.dtos.DiscountRecommendationDTO;
 import br.com.seudominio.perishrescue.domain.entities.AiRecommendation;
-import br.com.seudominio.perishrescue.domain.entities.Product;
+import br.com.seudominio.perishrescue.domain.entities.PerishableResource;
 
 import org.springframework.stereotype.Component;
 
@@ -22,7 +22,7 @@ public class AiRecommendationMapper implements DTOMapper<AiRecommendation, Disco
 
     /**
      * Converts a {@link DiscountRecommendationDTO} to an {@link AiRecommendation}.
-     * The product association is not resolved here.
+     * The resource association is not resolved here.
      *
      * @param dto the DTO to convert
      * @return the corresponding entity, or {@code null} if {@code dto} is {@code null}
@@ -71,19 +71,19 @@ public class AiRecommendationMapper implements DTOMapper<AiRecommendation, Disco
             return null;
         }
 
-        Product product = recommendation.getProduct();
+        PerishableResource resource = recommendation.getResource();
         Percentage percentage = recommendation.getSuggestedPercentage();
-        Money originalPrice = product == null ? null : product.getOriginalPrice();
+        Money originalPrice = resource == null ? null : resource.getOriginalPrice();
 
         return new DiscountRecommendationDTO(
                 recommendation.getId(),
-                product == null ? null : product.getId(),
-                product == null ? null : product.getName(),
+                resource == null ? null : resource.getId(),
+                resource == null ? null : resource.getName(),
                 recommendation.getType(),
                 percentage == null ? null : percentage.value(),
                 recommendation.getStatus(),
                 originalPrice == null ? null : originalPrice.amount(),
-                product == null || product.getCurrentPrice() == null ? null : product.getCurrentPrice().amount(),
+                resource == null || resource.getCurrentPrice() == null ? null : resource.getCurrentPrice().amount(),
                 originalPrice == null || percentage == null
                         ? null
                         : originalPrice.applyDiscount(percentage).amount(),

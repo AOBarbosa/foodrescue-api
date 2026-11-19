@@ -22,28 +22,28 @@ class StockDepletedListenerTest {
     }
 
     @Test
-    void closesTheOpenOffersOfTheDepletedProduct() {
-        when(offerService.closeOffersForDepletedProduct(10L)).thenReturn(1);
+    void closesTheOpenOffersOfTheDepletedResource() {
+        when(offerService.closeOffersForDepletedResource(10L)).thenReturn(1);
 
-        listener.onProductStockDepleted(new ProductStockDepletedEvent(10L, 1L));
+        listener.onResourceStockDepleted(new ResourceStockDepletedEvent(10L, 1L));
 
-        verify(offerService).closeOffersForDepletedProduct(10L);
+        verify(offerService).closeOffersForDepletedResource(10L);
     }
 
     @Test
-    void isSafeWhenTheProductHadNoOpenOffer() {
-        when(offerService.closeOffersForDepletedProduct(10L)).thenReturn(0);
+    void isSafeWhenTheResourceHadNoOpenOffer() {
+        when(offerService.closeOffersForDepletedResource(10L)).thenReturn(0);
 
-        assertThatCode(() -> listener.onProductStockDepleted(new ProductStockDepletedEvent(10L, 1L)))
+        assertThatCode(() -> listener.onResourceStockDepleted(new ResourceStockDepletedEvent(10L, 1L)))
                 .doesNotThrowAnyException();
     }
 
     @Test
     void swallowsAFailureSoTheSaleIsNeverUndone() {
-        when(offerService.closeOffersForDepletedProduct(10L))
+        when(offerService.closeOffersForDepletedResource(10L))
                 .thenThrow(new IllegalStateException("database is down"));
 
-        assertThatCode(() -> listener.onProductStockDepleted(new ProductStockDepletedEvent(10L, 1L)))
+        assertThatCode(() -> listener.onResourceStockDepleted(new ResourceStockDepletedEvent(10L, 1L)))
                 .doesNotThrowAnyException();
     }
 }

@@ -9,17 +9,17 @@ import java.time.LocalDateTime;
 /**
  * Request payload for recording a sale.
  *
- * @param productId the identifier of the product being sold
+ * @param resourceId the identifier of the resource being sold
  * @param quantity  the quantity sold (must be > 0)
- * @param unitPrice optional unit price (defaults to product current price if omitted)
+ * @param unitPrice optional unit price (defaults to resource current price if omitted)
  * @param soldAt    optional timestamp when the sale took place (defaults to now if omitted)
  *
  * @author Clovis Medeiros
  * @since 1.0.0
  */
 public record RegisterSaleDTO(
-        @NotNull(message = "productId must not be null")
-        Long productId,
+        @NotNull(message = "resourceId must not be null")
+        Long resourceId,
 
         @NotNull(message = "quantity must not be null")
         @Positive(message = "quantity must be greater than zero")

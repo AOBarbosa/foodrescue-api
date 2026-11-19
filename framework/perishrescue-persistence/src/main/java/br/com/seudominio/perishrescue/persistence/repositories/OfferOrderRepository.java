@@ -16,10 +16,10 @@ import java.util.List;
 public interface OfferOrderRepository extends GenericRepository<OfferOrder> {
 
     /**
-     * Finds every active reservation made by a consumer, newest first (UC09).
+     * Finds every active reservation made by a beneficiary, newest first (UC09).
      *
-     * @param consumerId the consumer identifier
-     * @return the consumer's reservations
+     * @param beneficiaryId the beneficiary identifier
+     * @return the beneficiary's reservations
      */
-    List<OfferOrder> findByConsumerIdAndActiveTrueOrderByCreationDateDesc(Long consumerId);
+    List<OfferOrder> findByBeneficiaryIdAndActiveTrueOrderByCreationDateDesc(Long beneficiaryId);
 }

@@ -29,7 +29,7 @@ class SaleControllerTest {
     void setUp() {
         saleService = mock(SaleService.class);
         saleController = new SaleController(saleService);
-        principal = new AuthenticatedPrincipal(1L, UserRole.ESTABLISHMENT);
+        principal = new AuthenticatedPrincipal(1L, UserRole.OFFERER);
     }
 
     @Test
@@ -53,7 +53,7 @@ class SaleControllerTest {
     @Test
     void findByIdReturnsSale() {
         SaleDTO sale = new SaleDTO(100L, 10L, 2, new BigDecimal("15.00"), new BigDecimal("30.00"), LocalDateTime.now(), LocalDateTime.now());
-        when(saleService.findByIdForEstablishment(100L, principal.id())).thenReturn(sale);
+        when(saleService.findByIdForOfferer(100L, principal.id())).thenReturn(sale);
 
         ResponseEntity<ApiResponse<SaleDTO>> response = saleController.findById(100L, principal);
 
@@ -63,16 +63,16 @@ class SaleControllerTest {
         assertThat(response.getBody().message()).isEqualTo("Sale retrieved successfully");
         assertThat(response.getBody().data()).isEqualTo(sale);
 
-        verify(saleService).findByIdForEstablishment(100L, principal.id());
+        verify(saleService).findByIdForOfferer(100L, principal.id());
     }
 
     @Test
-    void listReturnsSalesForProductAndPeriod() {
+    void listReturnsSalesForResourceAndPeriod() {
         LocalDateTime start = LocalDateTime.of(2026, 9, 1, 0, 0);
         LocalDateTime end = LocalDateTime.of(2026, 9, 26, 23, 59);
         SaleDTO sale = new SaleDTO(100L, 10L, 2, new BigDecimal("15.00"), new BigDecimal("30.00"), start.plusDays(1), LocalDateTime.now());
 
-        when(saleService.findSalesByProductAndPeriod(10L, principal.id(), start, end)).thenReturn(List.of(sale));
+        when(saleService.findSalesByResourceAndPeriod(10L, principal.id(), start, end)).thenReturn(List.of(sale));
 
         ResponseEntity<ApiResponse<List<SaleDTO>>> response = saleController.list(10L, start, end, principal);
 
@@ -82,6 +82,6 @@ class SaleControllerTest {
         assertThat(response.getBody().message()).isEqualTo("Sales retrieved successfully");
         assertThat(response.getBody().data()).containsExactly(sale);
 
-        verify(saleService).findSalesByProductAndPeriod(10L, principal.id(), start, end);
+        verify(saleService).findSalesByResourceAndPeriod(10L, principal.id(), start, end);
     }
 }

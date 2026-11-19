@@ -17,11 +17,11 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.List;
 
 /**
- * Stateless JWT security configuration. Establishment (UC01, issue #2) and
- * Consumer registration/login are the only public non-GET routes here, plus
- * the establishment directory ({@code GET /establishments} and
- * {@code GET /establishments/{id}}, a public browsing surface for
- * consumers); every other route requires a valid bearer token, with
+ * Stateless JWT security configuration. Offerer (UC01, issue #2) and
+ * Beneficiary registration/login are the only public non-GET routes here, plus
+ * the offerer directory ({@code GET /offerers} and
+ * {@code GET /offerers/{id}}, a public browsing surface for
+ * beneficiaries); every other route requires a valid bearer token, with
  * fine-grained role/ownership checks left to each controller's own
  * {@code @PreAuthorize} ({@code @EnableMethodSecurity} is on).
  *
@@ -34,18 +34,18 @@ import java.util.List;
 public class SecurityConfig {
 
     private static final String[] PUBLIC_PATHS = {
-            "/consumers",
-            "/consumers/login",
-            "/establishments",
-            "/establishments/login",
+            "/beneficiaries",
+            "/beneficiaries/login",
+            "/offerers",
+            "/offerers/login",
             "/v3/api-docs/**",
             "/swagger-ui/**",
             "/swagger-ui.html"
     };
 
     private static final String[] PUBLIC_GET_PATHS = {
-            "/establishments",
-            "/establishments/{id}"
+            "/offerers",
+            "/offerers/{id}"
     };
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;

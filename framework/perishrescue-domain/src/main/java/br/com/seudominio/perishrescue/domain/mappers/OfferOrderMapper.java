@@ -1,10 +1,10 @@
 package br.com.seudominio.perishrescue.domain.mappers;
 
 import br.com.seudominio.perishrescue.domain.dtos.OfferOrderDTO;
-import br.com.seudominio.perishrescue.domain.entities.Consumer;
+import br.com.seudominio.perishrescue.domain.entities.Beneficiary;
 import br.com.seudominio.perishrescue.domain.entities.Offer;
 import br.com.seudominio.perishrescue.domain.entities.OfferOrder;
-import br.com.seudominio.perishrescue.domain.entities.Product;
+import br.com.seudominio.perishrescue.domain.entities.PerishableResource;
 
 import org.springframework.stereotype.Component;
 
@@ -21,7 +21,7 @@ public class OfferOrderMapper implements DTOMapper<OfferOrder, OfferOrderDTO> {
 
     /**
      * Converts an {@link OfferOrderDTO} to an {@link OfferOrder}.
-     * The offer and consumer associations are not resolved here.
+     * The offer and beneficiary associations are not resolved here.
      *
      * @param dto the DTO to convert
      * @return the corresponding entity, or {@code null} if {@code dto} is {@code null}
@@ -52,8 +52,8 @@ public class OfferOrderMapper implements DTOMapper<OfferOrder, OfferOrderDTO> {
         }
 
         Offer offer = order.getOffer();
-        Product product = offer == null ? null : offer.getProduct();
-        Consumer consumer = order.getConsumer();
+        PerishableResource resource = offer == null ? null : offer.getResource();
+        Beneficiary beneficiary = order.getBeneficiary();
 
         BigDecimal unitPrice = (offer != null && offer.getDiscountedPrice() != null)
                 ? offer.getDiscountedPrice().amount()
@@ -65,9 +65,9 @@ public class OfferOrderMapper implements DTOMapper<OfferOrder, OfferOrderDTO> {
         return new OfferOrderDTO(
                 order.getId(),
                 offer == null ? null : offer.getId(),
-                product == null ? null : product.getId(),
-                product == null ? null : product.getName(),
-                consumer == null ? null : consumer.getId(),
+                resource == null ? null : resource.getId(),
+                resource == null ? null : resource.getName(),
+                beneficiary == null ? null : beneficiary.getId(),
                 order.getQuantity(),
                 unitPrice,
                 totalPrice,

@@ -9,10 +9,10 @@ import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 
 /**
- * An establishment's answer to a pending discount recommendation (UC07).
+ * An offerer's answer to a pending discount recommendation (UC07).
  *
  * @param decision            accept, adjust or refuse
- * @param adjustedPercentage  the establishment's own percentage; required for
+ * @param adjustedPercentage  the offerer's own percentage; required for
  *                            {@link RecommendationDecision#ADJUST} and ignored otherwise
  *
  * @author Hugo Jose

@@ -7,7 +7,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 /**
  * Provides the {@link PasswordEncoder} bean shared by every service that
- * hashes or checks passwords (establishments and consumers alike).
+ * hashes or checks passwords (offerers and beneficiaries alike).
  *
  * @author Andre Barbosa
  * @since 1.0.0

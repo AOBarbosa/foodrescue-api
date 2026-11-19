@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * Announces that an establishment answered a discount recommendation (UC07).
+ * Announces that an offerer answered a discount recommendation (UC07).
  *
  * <p>Published for every answer, including a refusal, so a subscriber can
  * decide what each outcome means to it. UC08 is expected to create an offer
@@ -15,8 +15,8 @@ import java.time.LocalDateTime;
  * {@link RecommendationStatus#ADJUSTED}.</p>
  *
  * @param recommendationId  the answered recommendation
- * @param productId         the discounted product
- * @param establishmentId   the establishment that answered
+ * @param resourceId         the discounted resource
+ * @param offererId   the offerer that answered
  * @param status            the resulting status
  * @param appliedPercentage the percentage actually applied, or {@code null} when refused
  * @param recommendationType the kind of recommendation answered (DISCOUNT or SURPLUS_DESTINATION)
@@ -27,8 +27,8 @@ import java.time.LocalDateTime;
  */
 public record DiscountRecommendationRespondedEvent(
         Long recommendationId,
-        Long productId,
-        Long establishmentId,
+        Long resourceId,
+        Long offererId,
         RecommendationStatus status,
         BigDecimal appliedPercentage,
         RecommendationType recommendationType,

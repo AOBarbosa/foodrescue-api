@@ -9,7 +9,7 @@ import java.util.Locale;
 
 /**
  * FoodRescue: the first instance of the PerishRescue framework, for food and
- * ready meals rescued before the establishment closes.
+ * ready meals rescued before the offerer closes.
  *
  * <p>{@link EnablePerishRescue} plugs the framework kernel in; everything the
  * instance customizes lives under {@code br.com.seudominio.foodrescue}.</p>

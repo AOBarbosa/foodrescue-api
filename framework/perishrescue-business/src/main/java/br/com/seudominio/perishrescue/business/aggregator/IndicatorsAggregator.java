@@ -3,7 +3,7 @@ package br.com.seudominio.perishrescue.business.aggregator;
 import br.com.seudominio.perishrescue.domain.dtos.PeriodDTO;
 import br.com.seudominio.perishrescue.domain.dtos.WasteAndSavingsIndicatorsDTO;
 import br.com.seudominio.perishrescue.domain.entities.AiRecommendation;
-import br.com.seudominio.perishrescue.domain.entities.Product;
+import br.com.seudominio.perishrescue.domain.entities.PerishableResource;
 import br.com.seudominio.perishrescue.domain.entities.Sale;
 import br.com.seudominio.perishrescue.domain.enums.RecommendationStatus;
 
@@ -63,9 +63,9 @@ public class IndicatorsAggregator {
 
         if (sales != null) {
             for (Sale sale : sales) {
-                Product product = sale.getProduct();
-                if (product != null && product.getOriginalPrice() != null && sale.getUnitPrice() != null) {
-                    if (product.getOriginalPrice().isGreaterThan(sale.getUnitPrice())) {
+                PerishableResource resource = sale.getResource();
+                if (resource != null && resource.getOriginalPrice() != null && sale.getUnitPrice() != null) {
+                    if (resource.getOriginalPrice().isGreaterThan(sale.getUnitPrice())) {
                         wasteAvoidedUnits += sale.getQuantity();
                         BigDecimal saleTotal = sale.getUnitPrice().amount()
                                 .multiply(BigDecimal.valueOf(sale.getQuantity()));

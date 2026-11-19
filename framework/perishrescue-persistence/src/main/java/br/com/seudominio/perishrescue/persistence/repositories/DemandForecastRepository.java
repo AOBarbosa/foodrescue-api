@@ -19,24 +19,24 @@ import java.util.Optional;
 public interface DemandForecastRepository extends GenericRepository<DemandForecast> {
 
     /**
-     * Finds the most recently calculated active forecast of a product.
+     * Finds the most recently calculated active forecast of a resource.
      *
-     * @param productId the product id
-     * @return the latest forecast, or empty if the product was never forecast
+     * @param resourceId the resource id
+     * @return the latest forecast, or empty if the resource was never forecast
      */
-    Optional<DemandForecast> findFirstByProductIdAndActiveTrueOrderByCalculatedAtDesc(Long productId);
+    Optional<DemandForecast> findFirstByResourceIdAndActiveTrueOrderByCalculatedAtDesc(Long resourceId);
 
     /**
-     * Finds the most recently calculated active forecast of every product of an
-     * establishment, so the waste-risk panel (UC06) can be built with a single
-     * query instead of one per product.
+     * Finds the most recently calculated active forecast of every resource of an
+     * offerer, so the waste-risk panel (UC06) can be built with a single
+     * query instead of one per resource.
      *
-     * @param establishmentId the establishment id
-     * @return the latest forecast of each forecast product, product name ascending
+     * @param offererId the offerer id
+     * @return the latest forecast of each forecast resource, resource name ascending
      */
-    @Query("SELECT f FROM DemandForecast f JOIN f.product p WHERE p.establishment.id = :establishmentId "
+    @Query("SELECT f FROM DemandForecast f JOIN f.resource p WHERE p.offerer.id = :offererId "
             + "AND f.active = true AND p.active = true "
             + "AND f.calculatedAt = (SELECT MAX(l.calculatedAt) FROM DemandForecast l "
-            + "WHERE l.product.id = p.id AND l.active = true) ORDER BY p.name ASC")
-    List<DemandForecast> findLatestByEstablishment(@Param("establishmentId") Long establishmentId);
+            + "WHERE l.resource.id = p.id AND l.active = true) ORDER BY p.name ASC")
+    List<DemandForecast> findLatestByOfferer(@Param("offererId") Long offererId);
 }

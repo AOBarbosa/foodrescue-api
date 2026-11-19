@@ -25,8 +25,8 @@ import org.hibernate.envers.Audited;
 import java.time.LocalDateTime;
 
 /**
- * Offer. This class represents a surplus offer made from a {@link Product},
- * visible to consumers (UC08/UC09). Carries an optimistic-locking
+ * Offer. This class represents a surplus offer made from a {@link PerishableResource},
+ * visible to beneficiaries (UC08/UC09). Carries an optimistic-locking
  * {@code version} column because concurrent reservations (UC09) must not
  * oversell the available quantity.
  *
@@ -48,14 +48,14 @@ public class Offer extends AbstractEntity {
     private Long id;
 
     /**
-     * The product this offer was made from.
+     * The resource this offer was made from.
      */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "product_id", nullable = false)
-    private Product product;
+    @JoinColumn(name = "resource_id", nullable = false)
+    private PerishableResource resource;
 
     /**
-     * Discounted price offered to consumers.
+     * Discounted price offered to beneficiaries.
      */
     @Convert(converter = MoneyConverter.class)
     @Column(name = "discounted_price", nullable = false)
@@ -81,7 +81,7 @@ public class Offer extends AbstractEntity {
     private OfferStatus status;
 
     /**
-     * Whether the offer is marked as priority/featured for consumers.
+     * Whether the offer is marked as priority/featured for beneficiaries.
      */
     @Column(nullable = false)
     private boolean priority;
@@ -119,12 +119,12 @@ public class Offer extends AbstractEntity {
         this.id = id;
     }
 
-    public Product getProduct() {
-        return product;
+    public PerishableResource getResource() {
+        return resource;
     }
 
-    public void setProduct(Product product) {
-        this.product = product;
+    public void setResource(PerishableResource resource) {
+        this.resource = resource;
     }
 
     public Money getDiscountedPrice() {
@@ -160,7 +160,7 @@ public class Offer extends AbstractEntity {
     }
 
     /**
-     * Marks the offer as priority/featured for consumers (UC11).
+     * Marks the offer as priority/featured for beneficiaries (UC11).
      */
     public void markAsPriority() {
         this.priority = true;
@@ -183,7 +183,7 @@ public class Offer extends AbstractEntity {
 
     @Override
     public String toString() {
-        return "Offer [id=" + id + ", productId=" + (product == null ? null : product.getId())
+        return "Offer [id=" + id + ", resourceId=" + (resource == null ? null : resource.getId())
                 + ", status=" + status + "]";
     }
 }

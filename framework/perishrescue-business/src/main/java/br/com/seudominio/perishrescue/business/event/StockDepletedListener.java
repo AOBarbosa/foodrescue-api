@@ -9,10 +9,10 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
- * Closes the open offers of a product that ran out of stock (UC08).
+ * Closes the open offers of a resource that ran out of stock (UC08).
  *
  * <p>Enforces the acceptance criterion <em>"an offer cannot stay active with
- * zero stock"</em> from the side the product controls. {@code ProductService}
+ * zero stock"</em> from the side the resource controls. {@code ResourceService}
  * only announces that the stock reached zero &mdash; it does not know that
  * offers exist.</p>
  *
@@ -36,24 +36,24 @@ public class StockDepletedListener {
     }
 
     /**
-     * Closes whatever is still open for the depleted product.
+     * Closes whatever is still open for the depleted resource.
      *
      * <p>Runs only after the transaction that emptied the stock commits, so a
      * failure here never rolls back the sale or the inventory update that
      * caused it.</p>
      *
-     * @param event the depleted product
+     * @param event the depleted resource
      */
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void onProductStockDepleted(ProductStockDepletedEvent event) {
+    public void onResourceStockDepleted(ResourceStockDepletedEvent event) {
         try {
-            int closed = offerService.closeOffersForDepletedProduct(event.productId());
+            int closed = offerService.closeOffersForDepletedResource(event.resourceId());
             if (closed > 0) {
-                log.info("Closed {} offer(s) of product {}: stock reached zero", closed, event.productId());
+                log.info("Closed {} offer(s) of resource {}: stock reached zero", closed, event.resourceId());
             }
         } catch (RuntimeException e) {
-            log.error("Failed to close the offers of product {} after its stock reached zero",
-                    event.productId(), e);
+            log.error("Failed to close the offers of resource {} after its stock reached zero",
+                    event.resourceId(), e);
         }
     }
 }

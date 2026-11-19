@@ -6,13 +6,13 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * DTO representing a consumer's reservation/purchase of an offer (UC09).
+ * DTO representing a beneficiary's reservation/purchase of an offer (UC09).
  *
  * @param id          the reservation identifier
  * @param offerId     the reserved offer's identifier
- * @param productId   the offered product's identifier
- * @param productName the offered product's name
- * @param consumerId  the consumer's identifier
+ * @param resourceId   the offered resource's identifier
+ * @param resourceName the offered resource's name
+ * @param beneficiaryId  the beneficiary's identifier
  * @param quantity    the reserved quantity
  * @param unitPrice   the discounted unit price of the offer
  * @param totalPrice  the total reservation price ({@code unitPrice * quantity})
@@ -25,9 +25,9 @@ import java.time.LocalDateTime;
 public record OfferOrderDTO(
         Long id,
         Long offerId,
-        Long productId,
-        String productName,
-        Long consumerId,
+        Long resourceId,
+        String resourceName,
+        Long beneficiaryId,
         int quantity,
         BigDecimal unitPrice,
         BigDecimal totalPrice,

@@ -9,8 +9,9 @@ import br.com.seudominio.perishrescue.core.money.Money;
 import br.com.seudominio.perishrescue.core.time.TimeProvider;
 import br.com.seudominio.perishrescue.core.validation.BusinessOperation;
 import br.com.seudominio.perishrescue.core.validation.exception.ValidationException;
-import br.com.seudominio.perishrescue.domain.entities.Product;
+import br.com.seudominio.perishrescue.domain.entities.PerishableResource;
 import br.com.seudominio.perishrescue.domain.entities.Sale;
+import br.com.seudominio.perishrescue.domain.testsupport.TestResource;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,11 +36,11 @@ class SaleBusinessValidatorTest {
     }
 
     private Sale validSale() {
-        Product product = new Product();
-        product.setId(1L);
+        PerishableResource resource = new TestResource();
+        resource.setId(1L);
 
         return Sale.builder()
-                .product(product)
+                .resource(resource)
                 .quantity(2)
                 .unitPrice(Money.of(new BigDecimal("15.00")))
                 .soldAt(NOW.minusHours(1))

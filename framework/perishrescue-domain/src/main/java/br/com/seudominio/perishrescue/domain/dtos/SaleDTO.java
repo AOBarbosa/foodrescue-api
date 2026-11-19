@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
  * DTO representing a recorded sale.
  *
  * @param id           the sale identifier
- * @param productId    the product identifier
+ * @param resourceId    the resource identifier
  * @param quantity     the quantity sold
  * @param unitPrice    the unit price at the time of sale
  * @param totalPrice   the calculated total price (quantity * unitPrice)
@@ -19,7 +19,7 @@ import java.time.LocalDateTime;
  */
 public record SaleDTO(
         Long id,
-        Long productId,
+        Long resourceId,
         int quantity,
         BigDecimal unitPrice,
         BigDecimal totalPrice,

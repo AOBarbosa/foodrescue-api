@@ -30,7 +30,7 @@ instances/
 | `perishrescue-persistence` | `br.com.seudominio.perishrescue.persistence` | `GenericRepository<T>` and one concrete Spring Data repository per aggregate (`repositories`), Liquibase changelogs. |
 | `perishrescue-business` | `br.com.seudominio.perishrescue.business` | `GenericService<E,D>` and one concrete service per aggregate (`services`), business validators (`validation`), cross-cutting error codes (`helpers.MessageCode`), shared beans like `PasswordEncoder` (`config`). |
 | `perishrescue-rest` | `br.com.seudominio.perishrescue.rest` | Controllers, the `ApiResponse`/`ApiError`/`ApiSubError` response envelope (`dtos`), JWT security (`security`), the global exception handler (`exception`), Swagger config (`config`), and `@EnablePerishRescue` (`boot`). A plain library jar: it is not runnable on its own. |
-| `foodrescue` | `br.com.seudominio.foodrescue` | `FoodRescueApplication` (`@SpringBootApplication` + `@EnablePerishRescue`), `application.properties`, the executable jar. |
+| `foodrescue` | `br.com.seudominio.foodrescue` | `FoodRescueApplication` (`@SpringBootApplication` + `@EnablePerishRescue`), the `FoodItem` resource type (`domain`, `dtos`, `mappers`, `rest`), its Liquibase changelog, `application.properties`, the executable jar. |
 
 Dependency direction: `foodrescue → rest → business → persistence → domain → core`.
 A module never depends on one above it in this list.
@@ -46,6 +46,44 @@ scheduling. Don't add `@EntityScan`/`@EnableJpaRepositories` to an instance:
 they replace the scanned packages instead of adding to them.
 `FoodRescueApplicationTest` boots the whole context against H2 and fails if
 this wiring breaks.
+
+### Universal actors (frozen spot)
+
+`Offerer` (the establishment: CNPJ, address, free-text `category`, daily
+`openingTime`/`closingTime`) and `Beneficiary` (who reserves and rescues:
+CPF in `document`, unique and check-digit validated) are kernel entities used
+as-is by every instance. JWT roles are `OFFERER` and `BENEFICIARY`; routes are
+`/offerers` and `/beneficiaries`.
+
+### Hot spot 1: the perishable resource
+
+`PerishableResource` is an **abstract** entity (`@Inheritance(JOINED)`, table
+`resources`) with what every perishable item shares. An instance adds one
+concrete subclass per kind of item, with:
+
+1. **Entity**: `extends PerishableResource`, own table, own attributes, and
+   `criticalDeadline(LocalDateTime now)` (the end of the item's useful life).
+   A static `builder()` returning `new ResourceBuilder<>(MyItem::new)` gives
+   it the common fluent builder.
+2. **DTOs**: a registration request and a response.
+3. **Mapper**: a `@Component` implementing `ResourceTypeMapper<R, Q, D>`.
+4. **Controller**: a `@RestController` with its own `@RequestMapping` that
+   `extends AbstractResourceController<R, Q, D>` and only calls `super(...)`.
+   Register/list/find/inventory, authorization and validation are inherited.
+5. **Changelog**: the subclass table (PK = FK to `resources(id)`) and its
+   `_aud` table (no `revtype`; FK `(rev, id)` → `resources_aud`).
+
+`FoodItem` / `FoodItemController` in the FoodRescue instance are the
+reference implementation. The kernel's own tests use
+`domain.testsupport.TestResource`, published by `perishrescue-domain` as a
+test-jar, so the framework is tested without any instance.
+
+### Liquibase
+
+The kernel ships `db/changelog/perishrescue-master.xml`. An instance points
+`spring.liquibase.change-log` at its own master, which includes the kernel
+master first and then its own changesets (FoodRescue:
+`db/changelog/foodrescue-master.xml`).
 
 ## Entities
 

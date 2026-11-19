@@ -1,7 +1,7 @@
 package br.com.seudominio.perishrescue.business.forecast;
 
 /**
- * Algorithm that estimates how many units of a product will still be sold
+ * Algorithm that estimates how many units of a resource will still be sold
  * until the end of the business day (UC05).
  *
  * <p>Implementations must honor the same contract so they can replace each

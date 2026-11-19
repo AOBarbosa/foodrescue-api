@@ -21,43 +21,43 @@ import java.util.Optional;
 public interface OfferRepository extends GenericRepository<Offer> {
 
     /**
-     * Finds the most recent offer of a product in a given status, used to stop a
-     * second active offer from being published for the same product (UC08).
+     * Finds the most recent offer of a resource in a given status, used to stop a
+     * second active offer from being published for the same resource (UC08).
      *
-     * @param productId the product id
+     * @param resourceId the resource id
      * @param status    the status to filter by
      * @return the most recent matching offer, if any
      */
-    Optional<Offer> findFirstByProductIdAndStatusAndActiveTrueOrderByCreationDateDesc(
-            Long productId, OfferStatus status);
+    Optional<Offer> findFirstByResourceIdAndStatusAndActiveTrueOrderByCreationDateDesc(
+            Long resourceId, OfferStatus status);
 
     /**
-     * Finds every offer of a product in a given status (UC08).
+     * Finds every offer of a resource in a given status (UC08).
      *
-     * <p>Used to close whatever is still open when the product runs out of stock.</p>
+     * <p>Used to close whatever is still open when the resource runs out of stock.</p>
      *
-     * @param productId the product id
+     * @param resourceId the resource id
      * @param status    the status to filter by
      * @return the matching offers
      */
-    List<Offer> findByProductIdAndStatusAndActiveTrue(Long productId, OfferStatus status);
+    List<Offer> findByResourceIdAndStatusAndActiveTrue(Long resourceId, OfferStatus status);
 
     /**
-     * Finds every offer of an establishment, newest first (UC08).
+     * Finds every offer of an offerer, newest first (UC08).
      *
-     * @param establishmentId the establishment id
-     * @return the establishment's offers
+     * @param offererId the offerer id
+     * @return the offerer's offers
      */
-    List<Offer> findByProductEstablishmentIdAndActiveTrueOrderByCreationDateDesc(Long establishmentId);
+    List<Offer> findByResourceOffererIdAndActiveTrueOrderByCreationDateDesc(Long offererId);
 
     /**
-     * Finds the offers a consumer can still order: active, not expired and with
+     * Finds the offers a beneficiary can still order: active, not expired and with
      * units left. Highlighted offers come first (UC08, consumed by UC09/UC11).
      *
      * @param now the current moment
      * @return the orderable offers
      */
-    @Query("SELECT o FROM Offer o JOIN FETCH o.product p WHERE o.active = true AND p.active = true "
+    @Query("SELECT o FROM Offer o JOIN FETCH o.resource p WHERE o.active = true AND p.active = true "
             + "AND o.status = br.com.seudominio.perishrescue.domain.enums.OfferStatus.ACTIVE "
             + "AND o.expiresAt > :now AND o.availableQuantity > 0 "
             + "ORDER BY o.priority DESC, o.expiresAt ASC")

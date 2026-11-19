@@ -27,13 +27,13 @@ class OfferOrderControllerTest {
 
     private OfferOrderService offerOrderService;
     private OfferOrderController controller;
-    private AuthenticatedPrincipal consumer;
+    private AuthenticatedPrincipal beneficiary;
 
     @BeforeEach
     void setUp() {
         offerOrderService = mock(OfferOrderService.class);
         controller = new OfferOrderController(offerOrderService);
-        consumer = new AuthenticatedPrincipal(50L, UserRole.CONSUMER);
+        beneficiary = new AuthenticatedPrincipal(50L, UserRole.BENEFICIARY);
     }
 
     private OfferOrderDTO orderDto(Long id) {
@@ -51,12 +51,12 @@ class OfferOrderControllerTest {
     }
 
     @Test
-    void reserveUsesAuthenticatedConsumer() {
+    void reserveUsesAuthenticatedBeneficiary() {
         ReserveOfferRequest request = new ReserveOfferRequest(700L, 2);
         OfferOrderDTO reserved = orderDto(900L);
         when(offerOrderService.reserve(request, 50L)).thenReturn(reserved);
 
-        ResponseEntity<ApiResponse<OfferOrderDTO>> response = controller.reserve(request, consumer);
+        ResponseEntity<ApiResponse<OfferOrderDTO>> response = controller.reserve(request, beneficiary);
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         assertThat(response.getBody()).isNotNull();
@@ -66,26 +66,26 @@ class OfferOrderControllerTest {
     }
 
     @Test
-    void listUsesAuthenticatedConsumer() {
+    void listUsesAuthenticatedBeneficiary() {
         List<OfferOrderDTO> orders = List.of(orderDto(900L));
-        when(offerOrderService.findAllForConsumer(50L)).thenReturn(orders);
+        when(offerOrderService.findAllForBeneficiary(50L)).thenReturn(orders);
 
-        ResponseEntity<ApiResponse<List<OfferOrderDTO>>> response = controller.list(consumer);
+        ResponseEntity<ApiResponse<List<OfferOrderDTO>>> response = controller.list(beneficiary);
 
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().data()).isSameAs(orders);
-        verify(offerOrderService).findAllForConsumer(50L);
+        verify(offerOrderService).findAllForBeneficiary(50L);
     }
 
     @Test
-    void findByIdUsesAuthenticatedConsumer() {
+    void findByIdUsesAuthenticatedBeneficiary() {
         OfferOrderDTO found = orderDto(900L);
-        when(offerOrderService.findByIdForConsumer(900L, 50L)).thenReturn(found);
+        when(offerOrderService.findByIdForBeneficiary(900L, 50L)).thenReturn(found);
 
-        ResponseEntity<ApiResponse<OfferOrderDTO>> response = controller.findById(900L, consumer);
+        ResponseEntity<ApiResponse<OfferOrderDTO>> response = controller.findById(900L, beneficiary);
 
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().data()).isSameAs(found);
-        verify(offerOrderService).findByIdForConsumer(900L, 50L);
+        verify(offerOrderService).findByIdForBeneficiary(900L, 50L);
     }
 }

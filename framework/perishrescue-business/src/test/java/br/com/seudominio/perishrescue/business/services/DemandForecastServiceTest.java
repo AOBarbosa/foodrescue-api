@@ -15,16 +15,17 @@ import br.com.seudominio.perishrescue.core.time.TimeProvider;
 import br.com.seudominio.perishrescue.core.utils.MessageUtils;
 import br.com.seudominio.perishrescue.domain.dtos.DemandForecastResponse;
 import br.com.seudominio.perishrescue.domain.entities.DemandForecast;
-import br.com.seudominio.perishrescue.domain.entities.Establishment;
-import br.com.seudominio.perishrescue.domain.entities.Product;
+import br.com.seudominio.perishrescue.domain.entities.Offerer;
+import br.com.seudominio.perishrescue.domain.entities.PerishableResource;
 import br.com.seudominio.perishrescue.domain.entities.Sale;
 import br.com.seudominio.perishrescue.domain.enums.ForecastConfidence;
 import br.com.seudominio.perishrescue.domain.exception.BusinessRuleViolationException;
 import br.com.seudominio.perishrescue.domain.exception.EntityNotFoundException;
 import br.com.seudominio.perishrescue.domain.mappers.DemandForecastMapper;
 import br.com.seudominio.perishrescue.persistence.repositories.DemandForecastRepository;
-import br.com.seudominio.perishrescue.persistence.repositories.ProductRepository;
+import br.com.seudominio.perishrescue.persistence.repositories.ResourceRepository;
 import br.com.seudominio.perishrescue.persistence.repositories.SaleRepository;
+import br.com.seudominio.perishrescue.domain.testsupport.TestResource;
 
 import jakarta.validation.Validator;
 
@@ -42,15 +43,15 @@ class DemandForecastServiceTest {
     private static final LocalDateTime START_OF_TODAY = LocalDateTime.of(2026, 9, 14, 0, 0);
 
     private DemandForecastRepository forecastRepository;
-    private ProductRepository productRepository;
+    private ResourceRepository resourceRepository;
     private SaleRepository saleRepository;
     private DemandForecastService service;
-    private Product product;
+    private PerishableResource resource;
 
     @BeforeEach
     void setUp() {
         forecastRepository = mock(DemandForecastRepository.class);
-        productRepository = mock(ProductRepository.class);
+        resourceRepository = mock(ResourceRepository.class);
         saleRepository = mock(SaleRepository.class);
         TimeProvider timeProvider = mock(TimeProvider.class);
         when(timeProvider.now()).thenReturn(NOW);
@@ -62,29 +63,29 @@ class DemandForecastServiceTest {
 
         service = new DemandForecastService(
                 forecastRepository, new DemandForecastMapper(), mock(Validator.class), mock(MessageUtils.class),
-                productRepository, saleRepository, new WeekdayHourlyAverageForecastStrategy(),
+                resourceRepository, saleRepository, new WeekdayHourlyAverageForecastStrategy(),
                 new ForecastEligibilityChecker(5), timeProvider, "22:00", 4);
 
-        Establishment establishment = new Establishment();
-        establishment.setId(1L);
-        product = new Product();
-        product.setId(10L);
-        product.setEstablishment(establishment);
-        product.setStockQuantity(20);
-        when(productRepository.findById(10L)).thenReturn(Optional.of(product));
+        Offerer offerer = new Offerer();
+        offerer.setId(1L);
+        resource = new TestResource();
+        resource.setId(10L);
+        resource.setOfferer(offerer);
+        resource.setStockQuantity(20);
+        when(resourceRepository.findById(10L)).thenReturn(Optional.of(resource));
     }
 
     private List<Sale> sameWeekdaySales(int weeks) {
         List<Sale> history = new ArrayList<>();
         for (int week = weeks; week >= 1; week--) {
             history.add(Sale.builder()
-                    .product(product)
+                    .resource(resource)
                     .quantity(4)
                     .unitPrice(Money.of(5.0))
                     .soldAt(NOW.minusWeeks(week).withHour(17))
                     .build());
             history.add(Sale.builder()
-                    .product(product)
+                    .resource(resource)
                     .quantity(2)
                     .unitPrice(Money.of(5.0))
                     .soldAt(NOW.minusWeeks(week).withHour(19))
@@ -94,14 +95,14 @@ class DemandForecastServiceTest {
     }
 
     @Test
-    void predictDemandRecordsForecastAssociatedWithProductAndCalculationMoment() {
-        when(saleRepository.findByProductAndPeriod(10L, START_OF_TODAY.minusWeeks(4), START_OF_TODAY))
+    void predictDemandRecordsForecastAssociatedWithResourceAndCalculationMoment() {
+        when(saleRepository.findByResourceAndPeriod(10L, START_OF_TODAY.minusWeeks(4), START_OF_TODAY))
                 .thenReturn(sameWeekdaySales(4));
 
         DemandForecastResponse response = service.predictDemand(10L, 1L);
 
         assertThat(response.id()).isEqualTo(100L);
-        assertThat(response.productId()).isEqualTo(10L);
+        assertThat(response.resourceId()).isEqualTo(10L);
         assertThat(response.predictedQuantity()).isEqualTo(6);
         assertThat(response.stockQuantity()).isEqualTo(20);
         assertThat(response.confidence()).isEqualTo(ForecastConfidence.HIGH);
@@ -114,7 +115,7 @@ class DemandForecastServiceTest {
 
     @Test
     void predictDemandRejectsInsufficientSalesHistoryWithoutRecordingForecast() {
-        when(saleRepository.findByProductAndPeriod(10L, START_OF_TODAY.minusWeeks(4), START_OF_TODAY))
+        when(saleRepository.findByResourceAndPeriod(10L, START_OF_TODAY.minusWeeks(4), START_OF_TODAY))
                 .thenReturn(sameWeekdaySales(2));
 
         assertThatThrownBy(() -> service.predictDemand(10L, 1L))
@@ -125,15 +126,15 @@ class DemandForecastServiceTest {
     }
 
     @Test
-    void predictDemandRejectsProductFromAnotherEstablishment() {
+    void predictDemandRejectsResourceFromAnotherOfferer() {
         assertThatThrownBy(() -> service.predictDemand(10L, 2L))
                 .isInstanceOf(EntityNotFoundException.class);
         verify(forecastRepository, never()).save(any(DemandForecast.class));
     }
 
     @Test
-    void predictDemandRejectsUnknownProduct() {
-        when(productRepository.findById(99L)).thenReturn(Optional.empty());
+    void predictDemandRejectsUnknownResource() {
+        when(resourceRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.predictDemand(99L, 1L))
                 .isInstanceOf(EntityNotFoundException.class);
@@ -143,7 +144,7 @@ class DemandForecastServiceTest {
     void findLatestReturnsMostRecentForecast() {
         DemandForecast latest = DemandForecast.builder()
                 .id(7L)
-                .product(product)
+                .resource(resource)
                 .predictedQuantity(3)
                 .stockQuantity(20)
                 .confidence(ForecastConfidence.MEDIUM)
@@ -151,7 +152,7 @@ class DemandForecastServiceTest {
                 .calculatedAt(NOW)
                 .forecastUntil(NOW.withHour(22))
                 .build();
-        when(forecastRepository.findFirstByProductIdAndActiveTrueOrderByCalculatedAtDesc(10L))
+        when(forecastRepository.findFirstByResourceIdAndActiveTrueOrderByCalculatedAtDesc(10L))
                 .thenReturn(Optional.of(latest));
 
         DemandForecastResponse response = service.findLatest(10L, 1L);
@@ -162,8 +163,8 @@ class DemandForecastServiceTest {
     }
 
     @Test
-    void findLatestFailsWhenProductWasNeverForecast() {
-        when(forecastRepository.findFirstByProductIdAndActiveTrueOrderByCalculatedAtDesc(10L))
+    void findLatestFailsWhenResourceWasNeverForecast() {
+        when(forecastRepository.findFirstByResourceIdAndActiveTrueOrderByCalculatedAtDesc(10L))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.findLatest(10L, 1L))

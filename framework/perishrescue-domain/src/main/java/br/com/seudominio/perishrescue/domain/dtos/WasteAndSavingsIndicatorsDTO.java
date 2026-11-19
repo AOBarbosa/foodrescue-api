@@ -4,14 +4,14 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 /**
- * Consolidated impact and waste-reduction indicators for an establishment (UC12).
+ * Consolidated impact and waste-reduction indicators for an offerer (UC12).
  *
  * @param period                  the period these metrics refer to
- * @param wasteAvoidedUnits       total units of products sold with discount, avoiding waste
+ * @param wasteAvoidedUnits       total units of resources sold with discount, avoiding waste
  * @param recoveredRevenue        total revenue collected from discounted sales (revenue that would otherwise be lost)
  * @param acceptedRecommendations total discount recommendations accepted (including adjusted ones)
  * @param refusedRecommendations  total discount recommendations refused
- * @param adjustedRecommendations total discount recommendations where the establishment adjusted the percentage
+ * @param adjustedRecommendations total discount recommendations where the offerer adjusted the percentage
  * @param comparisonPeriod        the indicators for the comparison period, or {@code null} if comparison was not requested
  *
  * @author Clovis Luan

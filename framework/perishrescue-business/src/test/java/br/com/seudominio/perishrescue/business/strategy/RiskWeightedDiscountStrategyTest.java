@@ -37,7 +37,7 @@ class RiskWeightedDiscountStrategyTest {
     }
 
     @Test
-    void addsTheUrgencyBonusWhenTheProductExpiresTomorrow() {
+    void addsTheUrgencyBonusWhenTheResourceExpiresTomorrow() {
         assertThat(strategy.suggest(context(50, 20, 10, 10, 1L)).value()).isEqualByComparingTo("45.00");
     }
 

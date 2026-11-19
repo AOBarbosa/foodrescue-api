@@ -6,10 +6,11 @@ import br.com.seudominio.perishrescue.core.money.Money;
 import br.com.seudominio.perishrescue.domain.dtos.PeriodDTO;
 import br.com.seudominio.perishrescue.domain.dtos.WasteAndSavingsIndicatorsDTO;
 import br.com.seudominio.perishrescue.domain.entities.AiRecommendation;
-import br.com.seudominio.perishrescue.domain.entities.Product;
+import br.com.seudominio.perishrescue.domain.entities.PerishableResource;
 import br.com.seudominio.perishrescue.domain.entities.Sale;
 import br.com.seudominio.perishrescue.domain.enums.RecommendationStatus;
 import br.com.seudominio.perishrescue.domain.enums.RecommendationType;
+import br.com.seudominio.perishrescue.domain.testsupport.TestResource;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,18 +31,18 @@ class IndicatorsAggregatorTest {
         period = new PeriodDTO(LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30));
     }
 
-    private Product createProduct(Long id, BigDecimal originalPrice) {
-        Product product = new Product();
-        product.setId(id);
-        product.setName("Produto " + id);
-        product.setOriginalPrice(Money.of(originalPrice));
-        product.setCurrentPrice(Money.of(originalPrice));
-        return product;
+    private PerishableResource createResource(Long id, BigDecimal originalPrice) {
+        PerishableResource resource = new TestResource();
+        resource.setId(id);
+        resource.setName("Produto " + id);
+        resource.setOriginalPrice(Money.of(originalPrice));
+        resource.setCurrentPrice(Money.of(originalPrice));
+        return resource;
     }
 
-    private Sale createSale(Product product, int quantity, BigDecimal unitPrice) {
+    private Sale createSale(PerishableResource resource, int quantity, BigDecimal unitPrice) {
         Sale sale = new Sale();
-        sale.setProduct(product);
+        sale.setResource(resource);
         sale.setQuantity(quantity);
         sale.setUnitPrice(Money.of(unitPrice));
         return sale;
@@ -83,9 +84,9 @@ class IndicatorsAggregatorTest {
 
     @Test
     void aggregateSalesOnlyIncludesDiscountedSalesInWasteAvoidedAndRevenue() {
-        Product p1 = createProduct(1L, new BigDecimal("10.00"));
-        Product p2 = createProduct(2L, new BigDecimal("20.00"));
-        Product p3 = createProduct(3L, new BigDecimal("15.00"));
+        PerishableResource p1 = createResource(1L, new BigDecimal("10.00"));
+        PerishableResource p2 = createResource(2L, new BigDecimal("20.00"));
+        PerishableResource p3 = createResource(3L, new BigDecimal("15.00"));
 
         Sale saleDiscounted1 = createSale(p1, 5, new BigDecimal("7.00")); // 5 * 7 = 35.00
         Sale saleDiscounted2 = createSale(p2, 2, new BigDecimal("10.00")); // 2 * 10 = 20.00

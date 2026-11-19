@@ -3,7 +3,7 @@ package br.com.seudominio.perishrescue.domain.mappers;
 import br.com.seudominio.perishrescue.core.money.Money;
 import br.com.seudominio.perishrescue.domain.dtos.OfferDTO;
 import br.com.seudominio.perishrescue.domain.entities.Offer;
-import br.com.seudominio.perishrescue.domain.entities.Product;
+import br.com.seudominio.perishrescue.domain.entities.PerishableResource;
 
 import org.springframework.stereotype.Component;
 
@@ -19,7 +19,7 @@ public class OfferMapper implements DTOMapper<Offer, OfferDTO> {
 
     /**
      * Converts an {@link OfferDTO} to an {@link Offer}.
-     * The product association is not resolved here.
+     * The resource association is not resolved here.
      *
      * @param dto the DTO to convert
      * @return the corresponding entity, or {@code null} if {@code dto} is {@code null}
@@ -52,13 +52,13 @@ public class OfferMapper implements DTOMapper<Offer, OfferDTO> {
             return null;
         }
 
-        Product product = offer.getProduct();
-        Money originalPrice = product == null ? null : product.getOriginalPrice();
+        PerishableResource resource = offer.getResource();
+        Money originalPrice = resource == null ? null : resource.getOriginalPrice();
 
         return new OfferDTO(
                 offer.getId(),
-                product == null ? null : product.getId(),
-                product == null ? null : product.getName(),
+                resource == null ? null : resource.getId(),
+                resource == null ? null : resource.getName(),
                 originalPrice == null ? null : originalPrice.amount(),
                 offer.getDiscountedPrice() == null ? null : offer.getDiscountedPrice().amount(),
                 offer.getAvailableQuantity(),

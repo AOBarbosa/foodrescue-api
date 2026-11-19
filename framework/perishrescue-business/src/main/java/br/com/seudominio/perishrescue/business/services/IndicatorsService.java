@@ -20,7 +20,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 /**
- * Service that consolidates impact and waste-reduction indicators for an establishment (UC12).
+ * Service that consolidates impact and waste-reduction indicators for an offerer (UC12).
  *
  * <p>Unlike entity CRUD services, this service does not extend {@code GenericService}
  * because it coordinates multiple aggregates (sales and recommendations) to produce an analytical view.</p>
@@ -57,10 +57,10 @@ public class IndicatorsService {
     }
 
     /**
-     * Retrieves the consolidated indicators for an establishment within a period,
+     * Retrieves the consolidated indicators for an offerer within a period,
      * optionally including comparison with the immediately preceding period.
      *
-     * @param establishmentId the authenticated establishment identifier
+     * @param offererId the authenticated offerer identifier
      * @param period          the predefined period type (optional, defaults to {@link IndicatorPeriod#MONTH})
      * @param startDate       custom start date (optional)
      * @param endDate         custom end date (optional)
@@ -69,7 +69,7 @@ public class IndicatorsService {
      * @throws BusinessRuleViolationException if {@code startDate} is after {@code endDate}
      */
     public WasteAndSavingsIndicatorsDTO getIndicators(
-            Long establishmentId,
+            Long offererId,
             IndicatorPeriod period,
             LocalDate startDate,
             LocalDate endDate,
@@ -81,9 +81,9 @@ public class IndicatorsService {
         LocalDateTime startDateTime = currentPeriod.startDate().atStartOfDay();
         LocalDateTime endDateTime = currentPeriod.endDate().plusDays(1).atStartOfDay();
 
-        List<Sale> sales = saleRepository.findByEstablishmentAndPeriod(establishmentId, startDateTime, endDateTime);
+        List<Sale> sales = saleRepository.findByOffererAndPeriod(offererId, startDateTime, endDateTime);
         List<AiRecommendation> recommendations = recommendationRepository
-                .findRespondedByEstablishmentAndPeriod(establishmentId, startDateTime, endDateTime);
+                .findRespondedByOffererAndPeriod(offererId, startDateTime, endDateTime);
 
         WasteAndSavingsIndicatorsDTO comparisonDTO = null;
         if (compare) {
@@ -92,9 +92,9 @@ public class IndicatorsService {
             LocalDateTime prevEndDateTime = prevPeriod.endDate().plusDays(1).atStartOfDay();
 
             List<Sale> prevSales = saleRepository
-                    .findByEstablishmentAndPeriod(establishmentId, prevStartDateTime, prevEndDateTime);
+                    .findByOffererAndPeriod(offererId, prevStartDateTime, prevEndDateTime);
             List<AiRecommendation> prevRecs = recommendationRepository
-                    .findRespondedByEstablishmentAndPeriod(establishmentId, prevStartDateTime, prevEndDateTime);
+                    .findRespondedByOffererAndPeriod(offererId, prevStartDateTime, prevEndDateTime);
 
             comparisonDTO = aggregator.aggregate(prevPeriod, prevSales, prevRecs);
         }

@@ -16,7 +16,7 @@ import br.com.seudominio.perishrescue.domain.dtos.DiscountRecommendationDTO;
 import br.com.seudominio.perishrescue.domain.dtos.RespondToDiscountRecommendationRequest;
 import br.com.seudominio.perishrescue.domain.dtos.WasteRiskDTO;
 import br.com.seudominio.perishrescue.domain.entities.AiRecommendation;
-import br.com.seudominio.perishrescue.domain.entities.Product;
+import br.com.seudominio.perishrescue.domain.entities.PerishableResource;
 import br.com.seudominio.perishrescue.domain.enums.RecommendationDecision;
 import br.com.seudominio.perishrescue.domain.enums.RecommendationStatus;
 import br.com.seudominio.perishrescue.domain.enums.RecommendationType;
@@ -42,8 +42,8 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Service that recommends a dynamic price for products at risk of being wasted
- * and processes the establishment's answer (UC07).
+ * Service that recommends a dynamic price for resources at risk of being wasted
+ * and processes the offerer's answer (UC07).
  *
  * <p>The two responsibilities the issue separates are kept as two independent
  * entry points: {@link #recommendDiscount(Long, Long)} only produces a
@@ -65,7 +65,7 @@ public class AiRecommendationService extends GenericService<AiRecommendation, Di
 
     private final AiRecommendationRepository recommendationRepository;
     private final AiRecommendationMapper recommendationMapper;
-    private final ProductService productService;
+    private final ResourceService resourceService;
     private final WasteRiskService wasteRiskService;
     private final DiscountRecommendationStrategy discountStrategy;
     private final DomainEventPublisher eventPublisher;
@@ -83,7 +83,7 @@ public class AiRecommendationService extends GenericService<AiRecommendation, Di
      * @param mapper           the AI recommendation mapper
      * @param validator        the bean validator
      * @param messageUtils     the message utils
-     * @param productService   the product service, which owns product lookup and price changes
+     * @param resourceService   the resource service, which owns resource lookup and price changes
      * @param wasteRiskService the waste risk service (UC06), the precondition of this use case
      * @param discountStrategy the discount formula
      * @param eventPublisher   the domain event publisher
@@ -92,14 +92,14 @@ public class AiRecommendationService extends GenericService<AiRecommendation, Di
      * @param ttlHours         how many hours a pending recommendation waits before expiring
      * @param surplusStrategy  the decision between a deeper discount and priority (UC10)
      * @param reassessmentWindowHours how many hours before closing a persisting risk is reassessed (UC10)
-     * @param reassessmentCooldownMinutes minimum minutes between two recommendations of the same product (UC10)
+     * @param reassessmentCooldownMinutes minimum minutes between two recommendations of the same resource (UC10)
      */
     public AiRecommendationService(
             AiRecommendationRepository repository,
             AiRecommendationMapper mapper,
             Validator validator,
             MessageUtils messageUtils,
-            ProductService productService,
+            ResourceService resourceService,
             WasteRiskService wasteRiskService,
             DiscountRecommendationStrategy discountStrategy,
             DomainEventPublisher eventPublisher,
@@ -112,7 +112,7 @@ public class AiRecommendationService extends GenericService<AiRecommendation, Di
         super(repository, mapper, validator, messageUtils);
         this.recommendationRepository = repository;
         this.recommendationMapper = mapper;
-        this.productService = productService;
+        this.resourceService = resourceService;
         this.wasteRiskService = wasteRiskService;
         this.discountStrategy = discountStrategy;
         this.eventPublisher = eventPublisher;
@@ -125,43 +125,43 @@ public class AiRecommendationService extends GenericService<AiRecommendation, Di
     }
 
     /**
-     * Generates a pending discount recommendation for a product currently
+     * Generates a pending discount recommendation for a resource currently
      * flagged as at risk of being wasted (UC06).
      *
-     * @param productId       the product id
-     * @param establishmentId the authenticated establishment id
+     * @param resourceId       the resource id
+     * @param offererId the authenticated offerer id
      * @return the recorded recommendation, with status {@code PENDING}
-     * @throws EntityNotFoundException        if the product does not exist, belongs to another
-     *                                        establishment or was never forecast
-     * @throws BusinessRuleViolationException if the product is not at risk, or already has a
+     * @throws EntityNotFoundException        if the resource does not exist, belongs to another
+     *                                        offerer or was never forecast
+     * @throws BusinessRuleViolationException if the resource is not at risk, or already has a
      *                                        pending recommendation
      */
-    public DiscountRecommendationDTO recommendDiscount(Long productId, Long establishmentId) {
-        Product product = productService.findProductOwnedBy(productId, establishmentId);
-        WasteRiskDTO risk = wasteRiskService.assess(productId, establishmentId);
+    public DiscountRecommendationDTO recommendDiscount(Long resourceId, Long offererId) {
+        PerishableResource resource = resourceService.findResourceOwnedBy(resourceId, offererId);
+        WasteRiskDTO risk = wasteRiskService.assess(resourceId, offererId);
 
         if (!risk.atRisk()) {
             throw new BusinessRuleViolationException(String.format(
-                    "product %d is not at risk of waste: risk is %s%%, threshold is %s%%",
-                    productId, risk.riskPercentage(), risk.riskThreshold()));
+                    "resource %d is not at risk of waste: risk is %s%%, threshold is %s%%",
+                    resourceId, risk.riskPercentage(), risk.riskThreshold()));
         }
 
         LocalDateTime now = timeProvider.now();
         AiRecommendation pending = recommendationRepository
-                .findFirstByProductIdAndStatusAndActiveTrueOrderByCreationDateDesc(
-                        productId, RecommendationStatus.PENDING)
+                .findFirstByResourceIdAndStatusAndActiveTrueOrderByCreationDateDesc(
+                        resourceId, RecommendationStatus.PENDING)
                 .orElse(null);
 
         if (pending != null && !expireIfStale(pending, now)) {
             throw new BusinessRuleViolationException(String.format(
-                    "product %d already has a pending discount recommendation (id %d)",
-                    productId, pending.getId()));
+                    "resource %d already has a pending discount recommendation (id %d)",
+                    resourceId, pending.getId()));
         }
 
-        Percentage suggested = discountStrategy.suggest(contextFor(product, risk, now));
+        Percentage suggested = discountStrategy.suggest(contextFor(resource, risk, now));
 
         AiRecommendation recommendation = AiRecommendation.builder()
-                .product(product)
+                .resource(resource)
                 .type(RecommendationType.DISCOUNT)
                 .suggestedPercentage(suggested)
                 .build();
@@ -170,29 +170,29 @@ public class AiRecommendationService extends GenericService<AiRecommendation, Di
     }
 
     /**
-     * Processes the establishment's answer to a pending recommendation: accept
+     * Processes the offerer's answer to a pending recommendation: accept
      * the suggested percentage, adjust it, or refuse.
      *
-     * <p>Accepting or adjusting updates the product's current price; refusing
+     * <p>Accepting or adjusting updates the resource's current price; refusing
      * leaves it untouched. Every outcome publishes a
      * {@link DiscountRecommendationRespondedEvent}.</p>
      *
      * @param recommendationId the recommendation id
-     * @param establishmentId  the authenticated establishment id
-     * @param request          the establishment's answer
+     * @param offererId  the authenticated offerer id
+     * @param request          the offerer's answer
      * @return the answered recommendation
      * @throws EntityNotFoundException        if the recommendation does not exist or belongs to
-     *                                        another establishment
+     *                                        another offerer
      * @throws BusinessRuleViolationException if the recommendation already expired, was already
      *                                        answered, or an adjustment came without a percentage
      */
     public DiscountRecommendationDTO respondToRecommendation(
-            Long recommendationId, Long establishmentId, RespondToDiscountRecommendationRequest request) {
+            Long recommendationId, Long offererId, RespondToDiscountRecommendationRequest request) {
         if (request == null || request.decision() == null) {
             throw new BusinessRuleViolationException("decision must be informed");
         }
 
-        AiRecommendation recommendation = findOwnedBy(recommendationId, establishmentId);
+        AiRecommendation recommendation = findOwnedBy(recommendationId, offererId);
         LocalDateTime now = timeProvider.now();
 
         expireIfStale(recommendation, now);
@@ -212,15 +212,15 @@ public class AiRecommendationService extends GenericService<AiRecommendation, Di
         recommendation.setRespondedAt(now);
         if (applied != null) {
             recommendation.setSuggestedPercentage(applied);
-            productService.applyDiscount(recommendation.getProduct().getId(), establishmentId, applied);
+            resourceService.applyDiscount(recommendation.getResource().getId(), offererId, applied);
         }
 
         AiRecommendation answered = recommendationRepository.save(recommendation);
 
         eventPublisher.publish(new DiscountRecommendationRespondedEvent(
                 answered.getId(),
-                answered.getProduct().getId(),
-                establishmentId,
+                answered.getResource().getId(),
+                offererId,
                 answered.getStatus(),
                 applied == null ? null : applied.value(),
                 answered.getType(),
@@ -230,19 +230,19 @@ public class AiRecommendationService extends GenericService<AiRecommendation, Di
     }
 
     /**
-     * Lists the recommendations of an establishment still waiting for an answer,
+     * Lists the recommendations of an offerer still waiting for an answer,
      * oldest first. Recommendations whose deadline has passed are marked as
      * expired and left out.
      *
-     * @param establishmentId the authenticated establishment id
+     * @param offererId the authenticated offerer id
      * @return the pending recommendations
      */
-    public List<DiscountRecommendationDTO> findPendingForEstablishment(Long establishmentId) {
+    public List<DiscountRecommendationDTO> findPendingForOfferer(Long offererId) {
         LocalDateTime now = timeProvider.now();
 
         return recommendationRepository
-                .findByProductEstablishmentIdAndStatusAndActiveTrueOrderByCreationDateAsc(
-                        establishmentId, RecommendationStatus.PENDING)
+                .findByResourceOffererIdAndStatusAndActiveTrueOrderByCreationDateAsc(
+                        offererId, RecommendationStatus.PENDING)
                 .stream()
                 .filter(recommendation -> !expireIfStale(recommendation, now))
                 .map(this::toDto)
@@ -250,29 +250,29 @@ public class AiRecommendationService extends GenericService<AiRecommendation, Di
     }
 
     /**
-     * Lists every recommendation ever made for a product, newest first &mdash;
+     * Lists every recommendation ever made for a resource, newest first &mdash;
      * the accepted, adjusted, refused and expired ones.
      *
-     * @param productId       the product id
-     * @param establishmentId the authenticated establishment id
-     * @return the product's recommendation history
-     * @throws EntityNotFoundException if the product does not exist or belongs to another establishment
+     * @param resourceId       the resource id
+     * @param offererId the authenticated offerer id
+     * @return the resource's recommendation history
+     * @throws EntityNotFoundException if the resource does not exist or belongs to another offerer
      */
     @Transactional(readOnly = true)
-    public List<DiscountRecommendationDTO> findHistoryForProduct(Long productId, Long establishmentId) {
-        productService.findProductOwnedBy(productId, establishmentId);
+    public List<DiscountRecommendationDTO> findHistoryForResource(Long resourceId, Long offererId) {
+        resourceService.findResourceOwnedBy(resourceId, offererId);
 
-        return recommendationRepository.findByProductIdAndActiveTrueOrderByCreationDateDesc(productId)
+        return recommendationRepository.findByResourceIdAndActiveTrueOrderByCreationDateDesc(resourceId)
                 .stream()
                 .map(this::toDto)
                 .toList();
     }
 
     /**
-     * Reassesses the risk of the products whose last recommendation of the day
+     * Reassesses the risk of the resources whose last recommendation of the day
      * did not solve the problem and, when it persists close to closing time,
      * generates a new pending recommendation chained to the previous one
-     * (UC10). Products already sold out, no longer at risk, already waiting
+     * (UC10). Resources already sold out, no longer at risk, already waiting
      * for an answer or recommended too recently are left alone.
      *
      * <p>The risk is the one UC06 computes ({@link WasteRiskService}); what to
@@ -296,22 +296,22 @@ public class AiRecommendationService extends GenericService<AiRecommendation, Di
     }
 
     /**
-     * Lists the chain of recommendations made for a product today, in the
+     * Lists the chain of recommendations made for a resource today, in the
      * order they were generated: the initial one, then each new one pointing
      * to its predecessor through {@code previousRecommendationId} (UC10).
      *
-     * @param productId       the product id
-     * @param establishmentId the authenticated establishment id
-     * @return the product's recommendations of the day, oldest first
-     * @throws EntityNotFoundException if the product does not exist or belongs to another establishment
+     * @param resourceId       the resource id
+     * @param offererId the authenticated offerer id
+     * @return the resource's recommendations of the day, oldest first
+     * @throws EntityNotFoundException if the resource does not exist or belongs to another offerer
      */
     @Transactional(readOnly = true)
-    public List<DiscountRecommendationDTO> findChainForProduct(Long productId, Long establishmentId) {
-        productService.findProductOwnedBy(productId, establishmentId);
+    public List<DiscountRecommendationDTO> findChainForResource(Long resourceId, Long offererId) {
+        resourceService.findResourceOwnedBy(resourceId, offererId);
 
         return recommendationRepository
-                .findByProductIdAndCreationDateGreaterThanEqualAndActiveTrueOrderByCreationDateAsc(
-                        productId, timeProvider.now().toLocalDate().atStartOfDay())
+                .findByResourceIdAndCreationDateGreaterThanEqualAndActiveTrueOrderByCreationDateAsc(
+                        resourceId, timeProvider.now().toLocalDate().atStartOfDay())
                 .stream()
                 .map(this::toDto)
                 .toList();
@@ -319,19 +319,19 @@ public class AiRecommendationService extends GenericService<AiRecommendation, Di
 
     private Optional<DiscountRecommendationDTO> reassess(
             AiRecommendation tail, LocalDateTime now, Duration remaining) {
-        Product product = tail.getProduct();
-        Long productId = product.getId();
+        PerishableResource resource = tail.getResource();
+        Long resourceId = resource.getId();
 
-        boolean soldOut = product.getStockQuantity() <= 0;
+        boolean soldOut = resource.getStockQuantity() <= 0;
         boolean tooRecent = tail.getCreationDate() == null
                 || tail.getCreationDate().plusMinutes(reassessmentCooldownMinutes).isAfter(now);
-        if (soldOut || tooRecent || hasPending(productId)) {
+        if (soldOut || tooRecent || hasPending(resourceId)) {
             return Optional.empty();
         }
 
         WasteRiskDTO risk;
         try {
-            risk = wasteRiskService.assess(productId, product.getEstablishment().getId());
+            risk = wasteRiskService.assess(resourceId, resource.getOfferer().getId());
         } catch (EntityNotFoundException e) {
             return Optional.empty();
         }
@@ -344,12 +344,12 @@ public class AiRecommendationService extends GenericService<AiRecommendation, Di
                 risk.stockQuantity(),
                 risk.expectedSurplus(),
                 remaining.toHours(),
-                currentDiscountOf(product),
+                currentDiscountOf(resource),
                 tail.getType()));
 
         boolean discount = decision.action() == SurplusAction.ADDITIONAL_DISCOUNT;
         AiRecommendation next = AiRecommendation.builder()
-                .product(product)
+                .resource(resource)
                 .type(discount ? RecommendationType.DISCOUNT : RecommendationType.SURPLUS_DESTINATION)
                 .suggestedPercentage(discount ? decision.percentage() : null)
                 .previousRecommendationId(tail.getId())
@@ -358,16 +358,16 @@ public class AiRecommendationService extends GenericService<AiRecommendation, Di
         return Optional.of(toDto(recommendationRepository.save(next)));
     }
 
-    private boolean hasPending(Long productId) {
+    private boolean hasPending(Long resourceId) {
         return recommendationRepository
-                .findFirstByProductIdAndStatusAndActiveTrueOrderByCreationDateDesc(
-                        productId, RecommendationStatus.PENDING)
+                .findFirstByResourceIdAndStatusAndActiveTrueOrderByCreationDateDesc(
+                        resourceId, RecommendationStatus.PENDING)
                 .isPresent();
     }
 
-    private Percentage currentDiscountOf(Product product) {
-        Money original = product.getOriginalPrice();
-        Money current = product.getCurrentPrice();
+    private Percentage currentDiscountOf(PerishableResource resource) {
+        Money original = resource.getOriginalPrice();
+        Money current = resource.getCurrentPrice();
         if (original == null || current == null || original.amount().signum() <= 0) {
             return Percentage.of(BigDecimal.ZERO);
         }
@@ -402,9 +402,9 @@ public class AiRecommendationService extends GenericService<AiRecommendation, Di
         return true;
     }
 
-    private DiscountContext contextFor(Product product, WasteRiskDTO risk, LocalDateTime now) {
+    private DiscountContext contextFor(PerishableResource resource, WasteRiskDTO risk, LocalDateTime now) {
         LocalDateTime closingAt = now.toLocalDate().atTime(closingTime);
-        LocalDate expirationDate = product.getExpirationDate();
+        LocalDate expirationDate = resource.getExpirationDate();
 
         return new DiscountContext(
                 Percentage.of(risk.riskPercentage()),
@@ -438,11 +438,11 @@ public class AiRecommendationService extends GenericService<AiRecommendation, Di
         };
     }
 
-    private AiRecommendation findOwnedBy(Long id, Long establishmentId) {
+    private AiRecommendation findOwnedBy(Long id, Long offererId) {
         AiRecommendation recommendation = recommendationRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException(AiRecommendation.class, id));
 
-        if (!recommendation.getProduct().getEstablishment().getId().equals(establishmentId)) {
+        if (!recommendation.getResource().getOfferer().getId().equals(offererId)) {
             throw new EntityNotFoundException(AiRecommendation.class, id);
         }
         return recommendation;

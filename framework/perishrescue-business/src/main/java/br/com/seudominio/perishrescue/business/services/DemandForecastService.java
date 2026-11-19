@@ -8,13 +8,13 @@ import br.com.seudominio.perishrescue.core.time.TimeProvider;
 import br.com.seudominio.perishrescue.core.utils.MessageUtils;
 import br.com.seudominio.perishrescue.domain.dtos.DemandForecastResponse;
 import br.com.seudominio.perishrescue.domain.entities.DemandForecast;
-import br.com.seudominio.perishrescue.domain.entities.Product;
+import br.com.seudominio.perishrescue.domain.entities.PerishableResource;
 import br.com.seudominio.perishrescue.domain.entities.Sale;
 import br.com.seudominio.perishrescue.domain.exception.BusinessRuleViolationException;
 import br.com.seudominio.perishrescue.domain.exception.EntityNotFoundException;
 import br.com.seudominio.perishrescue.domain.mappers.DemandForecastMapper;
 import br.com.seudominio.perishrescue.persistence.repositories.DemandForecastRepository;
-import br.com.seudominio.perishrescue.persistence.repositories.ProductRepository;
+import br.com.seudominio.perishrescue.persistence.repositories.ResourceRepository;
 import br.com.seudominio.perishrescue.persistence.repositories.SaleRepository;
 import jakarta.validation.Validator;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,7 +26,7 @@ import java.time.LocalTime;
 import java.util.List;
 
 /**
- * Service that provides demand forecasting for products (UC05).
+ * Service that provides demand forecasting for resources (UC05).
  *
  * <p>Collecting the sales history ({@link SaleRepository}), calculating the
  * forecast ({@link DemandForecastStrategy}) and persisting the result
@@ -42,7 +42,7 @@ public class DemandForecastService extends GenericService<DemandForecast, Demand
 
     private final DemandForecastRepository forecastRepository;
     private final DemandForecastMapper forecastMapper;
-    private final ProductRepository productRepository;
+    private final ResourceRepository resourceRepository;
     private final SaleRepository saleRepository;
     private final DemandForecastStrategy forecastStrategy;
     private final ForecastEligibilityChecker eligibilityChecker;
@@ -57,7 +57,7 @@ public class DemandForecastService extends GenericService<DemandForecast, Demand
      * @param mapper              the demand forecast mapper
      * @param validator           the bean validator
      * @param messageUtils        the message utils
-     * @param productRepository   the product repository
+     * @param resourceRepository   the resource repository
      * @param saleRepository      the sale repository
      * @param forecastStrategy    the forecasting algorithm
      * @param eligibilityChecker  the minimum-history rule
@@ -70,7 +70,7 @@ public class DemandForecastService extends GenericService<DemandForecast, Demand
             DemandForecastMapper mapper,
             Validator validator,
             MessageUtils messageUtils,
-            ProductRepository productRepository,
+            ResourceRepository resourceRepository,
             SaleRepository saleRepository,
             DemandForecastStrategy forecastStrategy,
             ForecastEligibilityChecker eligibilityChecker,
@@ -80,7 +80,7 @@ public class DemandForecastService extends GenericService<DemandForecast, Demand
         super(repository, mapper, validator, messageUtils);
         this.forecastRepository = repository;
         this.forecastMapper = mapper;
-        this.productRepository = productRepository;
+        this.resourceRepository = resourceRepository;
         this.saleRepository = saleRepository;
         this.forecastStrategy = forecastStrategy;
         this.eligibilityChecker = eligibilityChecker;
@@ -90,22 +90,22 @@ public class DemandForecastService extends GenericService<DemandForecast, Demand
     }
 
     /**
-     * Calculates and records the demand forecast of a product until the end
+     * Calculates and records the demand forecast of a resource until the end
      * of the current business day.
      *
-     * @param productId       the product id
-     * @param establishmentId the authenticated establishment id
+     * @param resourceId       the resource id
+     * @param offererId the authenticated offerer id
      * @return the recorded forecast
-     * @throws EntityNotFoundException if the product does not exist or belongs to another establishment
-     * @throws BusinessRuleViolationException if the product lacks the minimum sales history
+     * @throws EntityNotFoundException if the resource does not exist or belongs to another offerer
+     * @throws BusinessRuleViolationException if the resource lacks the minimum sales history
      */
-    public DemandForecastResponse predictDemand(Long productId, Long establishmentId) {
-        Product product = findProductOwnedBy(productId, establishmentId);
+    public DemandForecastResponse predictDemand(Long resourceId, Long offererId) {
+        PerishableResource resource = findResourceOwnedBy(resourceId, offererId);
         LocalDateTime now = timeProvider.now();
 
         LocalDateTime startOfToday = now.toLocalDate().atStartOfDay();
-        List<Sale> salesHistory = saleRepository.findByProductAndPeriod(
-                productId, startOfToday.minusWeeks(lookbackWeeks), startOfToday);
+        List<Sale> salesHistory = saleRepository.findByResourceAndPeriod(
+                resourceId, startOfToday.minusWeeks(lookbackWeeks), startOfToday);
 
         if (!eligibilityChecker.isEligible(salesHistory)) {
             throw new BusinessRuleViolationException(String.format(
@@ -116,19 +116,19 @@ public class DemandForecastService extends GenericService<DemandForecast, Demand
 
         LocalDateTime closingAt = now.toLocalDate().atTime(closingTime);
         ForecastContext context = ForecastContext.builder()
-                .productName(product.getName())
-                .productCategory(product.getCategory())
+                .resourceName(resource.getName())
+                .resourceCategory(resource.getCategory())
                 .salesHistory(salesHistory)
-                .currentStock(product.getStockQuantity())
+                .currentStock(resource.getStockQuantity())
                 .now(now)
                 .closingAt(closingAt)
                 .build();
         ForecastResult result = forecastStrategy.forecast(context);
 
         DemandForecast forecast = DemandForecast.builder()
-                .product(product)
+                .resource(resource)
                 .predictedQuantity(result.predictedQuantity())
-                .stockQuantity(product.getStockQuantity())
+                .stockQuantity(resource.getStockQuantity())
                 .confidence(result.confidence())
                 .sampleSize(result.sampleSize())
                 .source(result.source())
@@ -141,30 +141,30 @@ public class DemandForecastService extends GenericService<DemandForecast, Demand
     }
 
     /**
-     * Finds the most recent demand forecast of a product.
+     * Finds the most recent demand forecast of a resource.
      *
-     * @param productId       the product id
-     * @param establishmentId the authenticated establishment id
+     * @param resourceId       the resource id
+     * @param offererId the authenticated offerer id
      * @return the latest forecast
-     * @throws EntityNotFoundException if the product does not exist, belongs to another
-     *                                 establishment or was never forecast
+     * @throws EntityNotFoundException if the resource does not exist, belongs to another
+     *                                 offerer or was never forecast
      */
     @Transactional(readOnly = true)
-    public DemandForecastResponse findLatest(Long productId, Long establishmentId) {
-        findProductOwnedBy(productId, establishmentId);
+    public DemandForecastResponse findLatest(Long resourceId, Long offererId) {
+        findResourceOwnedBy(resourceId, offererId);
 
-        return forecastRepository.findFirstByProductIdAndActiveTrueOrderByCalculatedAtDesc(productId)
+        return forecastRepository.findFirstByResourceIdAndActiveTrueOrderByCalculatedAtDesc(resourceId)
                 .map(forecastMapper::toDto)
-                .orElseThrow(() -> new EntityNotFoundException(DemandForecast.class, "product " + productId));
+                .orElseThrow(() -> new EntityNotFoundException(DemandForecast.class, "resource " + resourceId));
     }
 
-    private Product findProductOwnedBy(Long id, Long establishmentId) {
-        Product product = productRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException(Product.class, id));
+    private PerishableResource findResourceOwnedBy(Long id, Long offererId) {
+        PerishableResource resource = resourceRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException(PerishableResource.class, id));
 
-        if (!product.getEstablishment().getId().equals(establishmentId)) {
-            throw new EntityNotFoundException(Product.class, id);
+        if (!resource.getOfferer().getId().equals(offererId)) {
+            throw new EntityNotFoundException(PerishableResource.class, id);
         }
-        return product;
+        return resource;
     }
 }

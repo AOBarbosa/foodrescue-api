@@ -82,7 +82,7 @@ class DiscountAcceptedListenerTest {
     }
 
     @Test
-    void toleratesAProductThatRanOutOfStockBeforeTheOfferCouldBePublished() {
+    void toleratesAResourceThatRanOutOfStockBeforeTheOfferCouldBePublished() {
         when(offerService.createFromAcceptedDiscount(10L, 1L)).thenReturn(Optional.empty());
 
         assertThatCode(() -> listener.onDiscountRecommendationResponded(event(RecommendationStatus.ACCEPTED)))
@@ -100,12 +100,12 @@ class DiscountAcceptedListenerTest {
 
     @Test
     void marksOrPublishesPriorityOfferWhenSurplusDestinationIsAccepted() {
-        when(offerService.markOrPublishPriorityOfferForProduct(10L, 1L))
+        when(offerService.markOrPublishPriorityOfferForResource(10L, 1L))
                 .thenReturn(Optional.of(offer()));
 
         listener.onDiscountRecommendationResponded(surplusDestinationEvent(RecommendationStatus.ACCEPTED));
 
-        verify(offerService).markOrPublishPriorityOfferForProduct(10L, 1L);
+        verify(offerService).markOrPublishPriorityOfferForResource(10L, 1L);
         verify(offerService, never()).createFromAcceptedDiscount(anyLong(), anyLong());
     }
 
@@ -113,7 +113,7 @@ class DiscountAcceptedListenerTest {
     void doesNothingWhenSurplusDestinationIsRefused() {
         listener.onDiscountRecommendationResponded(surplusDestinationEvent(RecommendationStatus.REFUSED));
 
-        verify(offerService, never()).markOrPublishPriorityOfferForProduct(anyLong(), anyLong());
+        verify(offerService, never()).markOrPublishPriorityOfferForResource(anyLong(), anyLong());
         verify(offerService, never()).createFromAcceptedDiscount(anyLong(), anyLong());
     }
 }

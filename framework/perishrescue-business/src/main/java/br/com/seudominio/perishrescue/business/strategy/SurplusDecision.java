@@ -25,7 +25,7 @@ public record SurplusDecision(SurplusAction action, Percentage percentage) {
     }
 
     /**
-     * Decision to make the product available to consumers with priority.
+     * Decision to make the resource available to beneficiaries with priority.
      *
      * @return the decision
      */

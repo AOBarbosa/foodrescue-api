@@ -20,7 +20,7 @@ import java.math.RoundingMode;
  * <p>The three inputs the use case must weigh are covered as follows: the
  * <em>risk</em> drives the base discount, the <em>remaining time</em> (until
  * closing or expiration) drives the urgency bonus, and the <em>stock</em>
- * enters as a gate &mdash; a product with no expected surplus gets no discount
+ * enters as a gate &mdash; a resource with no expected surplus gets no discount
  * at all, regardless of its risk.</p>
  *
  * @author Hugo Jose
@@ -40,9 +40,9 @@ public class RiskWeightedDiscountStrategy implements DiscountRecommendationStrat
      * Constructor.
      *
      * @param riskFactor   fraction of the risk that becomes discount (e.g. {@code 0.6} turns 80% risk into 48%)
-     * @param urgencyBonus percentage points added when the product is running out of time
-     * @param urgentHours  how many hours before closing the product is considered urgent
-     * @param maxDiscount  ceiling for any suggestion, so the formula can never give the product away
+     * @param urgencyBonus percentage points added when the resource is running out of time
+     * @param urgentHours  how many hours before closing the resource is considered urgent
+     * @param maxDiscount  ceiling for any suggestion, so the formula can never give the resource away
      */
     public RiskWeightedDiscountStrategy(
             @Value("${app.discount.risk-factor:0.6}") double riskFactor,

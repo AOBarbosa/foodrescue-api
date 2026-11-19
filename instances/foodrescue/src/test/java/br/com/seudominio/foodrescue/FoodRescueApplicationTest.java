@@ -1,5 +1,6 @@
 package br.com.seudominio.foodrescue;
 
+import br.com.seudominio.foodrescue.rest.FoodItemController;
 import br.com.seudominio.perishrescue.business.services.OfferOrderService;
 import br.com.seudominio.perishrescue.business.services.OfferService;
 import br.com.seudominio.perishrescue.persistence.repositories.OfferRepository;
@@ -50,6 +51,7 @@ class FoodRescueApplicationTest {
         assertThat(context.getBeansOfType(OfferOrderService.class)).hasSize(1);
         assertThat(context.getBeansOfType(OfferRepository.class)).hasSize(1);
         assertThat(context.getBeansOfType(OfferController.class)).hasSize(1);
+        assertThat(context.getBeansOfType(FoodItemController.class)).hasSize(1);
         assertThat(context.getBeansOfType(JwtTokenProvider.class)).hasSize(1);
     }
 
@@ -57,7 +59,7 @@ class FoodRescueApplicationTest {
     void mapsTheFrameworkEntities() {
         assertThat(entityManagerFactory.getMetamodel().getEntities())
                 .extracting(entity -> entity.getJavaType().getSimpleName())
-                .contains("Establishment", "Consumer", "Product", "Offer", "OfferOrder",
+                .contains("Offerer", "Beneficiary", "PerishableResource", "FoodItem", "Offer", "OfferOrder",
                         "Sale", "DemandForecast", "AiRecommendation");
     }
 }
