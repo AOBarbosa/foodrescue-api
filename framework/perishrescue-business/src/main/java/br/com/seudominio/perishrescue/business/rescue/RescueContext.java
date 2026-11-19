@@ -4,6 +4,8 @@ import br.com.seudominio.perishrescue.domain.entities.Beneficiary;
 import br.com.seudominio.perishrescue.domain.entities.Offer;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -30,9 +32,19 @@ public record RescueContext(
         ReservationHistory history) {
 
     /**
-     * Compact constructor: copies the attributes and never keeps {@code null}.
+     * Compact constructor: keeps a read-only copy of the attributes, never
+     * {@code null}. Attributes with a {@code null} value (e.g. {@code {"transport": null}}
+     * in the request) are dropped, as if they had not been sent.
      */
     public RescueContext {
-        attributes = attributes == null ? Map.of() : Map.copyOf(attributes);
+        Map<String, Object> copy = new LinkedHashMap<>();
+        if (attributes != null) {
+            attributes.forEach((key, value) -> {
+                if (key != null && value != null) {
+                    copy.put(key, value);
+                }
+            });
+        }
+        attributes = Collections.unmodifiableMap(copy);
     }
 }

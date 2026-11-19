@@ -35,6 +35,9 @@ import br.com.seudominio.perishrescue.domain.mappers.ReservationMapper;
 import br.com.seudominio.perishrescue.persistence.repositories.BeneficiaryRepository;
 import br.com.seudominio.perishrescue.persistence.repositories.ReservationRepository;
 import br.com.seudominio.perishrescue.persistence.repositories.OfferRepository;
+import br.com.seudominio.perishrescue.persistence.repositories.SaleRepository;
+import br.com.seudominio.perishrescue.domain.entities.Sale;
+import org.mockito.ArgumentCaptor;
 import br.com.seudominio.perishrescue.domain.testsupport.TestResource;
 
 import jakarta.validation.Validator;
@@ -65,6 +68,7 @@ class ReservationServiceTest {
     private ResourceService resourceService;
     private TimeProvider timeProvider;
     private DomainEventPublisher eventPublisher;
+    private SaleRepository saleRepository = mock(SaleRepository.class);
 
     private ReservationService serviceWith(List<RescueRule> rules, PricingPolicy pricingPolicy) {
         PriceCalculator priceCalculator = new PriceCalculator(pricingPolicy, 90);
@@ -73,7 +77,7 @@ class ReservationServiceTest {
                 new OfferBusinessValidator(beanValidator, timeProvider), timeProvider, priceCalculator, eventPublisher);
         return new ReservationService(
                 reservationRepository, new ReservationMapper(), beanValidator, messageUtils, offerService,
-                offerRepository, resourceService, beneficiaryRepository,
+                offerRepository, resourceService, beneficiaryRepository, saleRepository,
                 new ReservationBusinessValidator(beanValidator), rules,
                 (beneficiaryId, from, to) -> 0, priceCalculator, timeProvider, eventPublisher, 120);
     }
@@ -129,7 +133,7 @@ class ReservationServiceTest {
                 .passwordHash("hashed")
                 .build();
 
-        when(beneficiaryRepository.findById(50L)).thenReturn(Optional.of(beneficiary));
+        when(beneficiaryRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(beneficiary));
     }
 
     private Offer activeOffer(Long id, int quantity) {
@@ -244,7 +248,7 @@ class ReservationServiceTest {
 
     @Test
     void reserveThrowsEntityNotFoundWhenBeneficiaryDoesNotExist() {
-        when(beneficiaryRepository.findById(999L)).thenReturn(Optional.empty());
+        when(beneficiaryRepository.findByIdForUpdate(999L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> reservationService.reserve(new ReserveOfferRequest(700L, 1), 999L))
                 .isInstanceOf(EntityNotFoundException.class);
@@ -401,7 +405,12 @@ class ReservationServiceTest {
         assertThat(dto.status()).isEqualTo(ReservationStatus.RESCUED);
         assertThat(dto.pickupCode()).isNull();
         assertThat(reservation.getRescuedAt()).isEqualTo(NOW);
-        verify(resourceService).releaseRescuedUnits(resource, 2);
+        ArgumentCaptor<Sale> sale = ArgumentCaptor.forClass(Sale.class);
+        verify(saleRepository).save(sale.capture());
+        assertThat(sale.getValue().getQuantity()).isEqualTo(2);
+        assertThat(sale.getValue().getUnitPrice().amount()).isEqualByComparingTo("5.20");
+        assertThat(sale.getValue().getSoldAt()).isEqualTo(NOW);
+        verify(resourceService, never()).holdUnits(any(), org.mockito.ArgumentMatchers.anyInt());
     }
 
     @Test
@@ -447,6 +456,7 @@ class ReservationServiceTest {
     void expireOverdueReservationsExpiresThemAndGivesTheirUnitsBack() {
         Offer offer = activeOffer(700L, 5);
         Reservation reservation = heldReservation(offer, 3);
+        reservation.setPickupDeadline(NOW.minusMinutes(1));
         when(reservationRepository.findByStatusAndPickupDeadlineLessThanEqualAndActiveTrue(
                 ReservationStatus.RESERVED, NOW)).thenReturn(List.of(reservation));
 
@@ -455,5 +465,31 @@ class ReservationServiceTest {
         assertThat(expired).isEqualTo(1);
         assertThat(reservation.getStatus()).isEqualTo(ReservationStatus.EXPIRED);
         assertThat(offer.getAvailableQuantity()).isEqualTo(8);
+    }
+
+    @Test
+    void reserveHoldsTheUnitsInTheStockAndCancellingGivesThemBack() {
+        Offer offer = activeOffer(700L, 10);
+        when(offerRepository.findById(700L)).thenReturn(Optional.of(offer));
+
+        reservationService.reserve(new ReserveOfferRequest(700L, 3), 50L);
+        verify(resourceService).holdUnits(resource, 3);
+
+        heldReservation(offer, 3);
+        reservationService.cancel(950L, 50L);
+        verify(resourceService).releaseHeldUnits(resource, 3);
+    }
+
+    @Test
+    void reserveFailsWhenTheStockNoLongerHasTheUnitsTheOfferPromises() {
+        Offer offer = activeOffer(700L, 10);
+        when(offerRepository.findById(700L)).thenReturn(Optional.of(offer));
+        when(resourceService.holdUnits(resource, 3))
+                .thenThrow(new BusinessRuleViolationException("resource 10 has only 1 units in stock"));
+
+        assertThatThrownBy(() -> reservationService.reserve(new ReserveOfferRequest(700L, 3), 50L))
+                .isInstanceOf(BusinessRuleViolationException.class)
+                .hasMessageContaining("only 1 units in stock");
+        verify(reservationRepository, never()).save(any(Reservation.class));
     }
 }

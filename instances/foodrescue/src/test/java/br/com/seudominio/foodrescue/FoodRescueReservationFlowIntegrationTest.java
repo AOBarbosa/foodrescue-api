@@ -132,7 +132,11 @@ class FoodRescueReservationFlowIntegrationTest {
         Integer reservationId = JsonPath.read(reservation, "$.data.id");
         String pickupCode = JsonPath.read(reservation, "$.data.pickupCode");
 
-        // the offerer confirms the pickup at the counter: the units leave the stock
+        // the reserved units are held: they leave the sellable stock right away
+        mockMvc.perform(get("/food-items/" + itemId).header("Authorization", offererToken))
+                .andExpect(jsonPath("$.data.stockQuantity").value(8));
+
+        // the offerer confirms the pickup at the counter (recorded as a sale)
         postJson("/reservations/" + reservationId + "/pickup", offererToken,
                 "{\"pickupCode\": \"" + pickupCode + "\"}")
                 .andExpect(status().isOk())

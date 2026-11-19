@@ -90,4 +90,16 @@ class RescueRulesTest {
         assertThatThrownBy(() -> new QuotaPerBeneficiaryRule(0)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new MinimumLotRule(0)).isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void attributesWithANullValueAreDroppedInsteadOfFailing() {
+        Map<String, Object> sent = new java.util.HashMap<>();
+        sent.put("transport", null);
+        sent.put("bucket", "WATER");
+
+        RescueContext context = new RescueContext(offer, beneficiary, 1, NOW, sent, (id, from, to) -> 0);
+
+        assertThat(context.attributes()).containsOnlyKeys("bucket");
+        assertThat(new RescueContext(offer, beneficiary, 1, NOW, null, (id, from, to) -> 0).attributes()).isEmpty();
+    }
 }

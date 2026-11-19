@@ -302,17 +302,52 @@ public class OfferService extends GenericService<Offer, OfferDTO> {
     }
 
     /**
-     * Expires every open offer whose deadline has passed. Run periodically by
-     * the kernel's {@code ExpirationMonitor}.
+     * Expires, in one go, every open offer whose deadline has passed. The
+     * {@code ExpirationMonitor} does not use it: it calls
+     * {@link #findOverdueOfferIds()} and {@link #expireOffer(Long)} so that each
+     * offer expires in its own transaction.
      *
      * @return how many offers expired
      */
     public int expireOverdueOffers() {
-        List<Offer> overdue = offerRepository.findByStatusInAndExpiresAtLessThanEqualAndActiveTrue(
-                OfferStatus.openStatuses(), timeProvider.now());
+        int expired = 0;
+        for (Long id : findOverdueOfferIds()) {
+            if (expireOffer(id)) {
+                expired++;
+            }
+        }
+        return expired;
+    }
 
-        overdue.forEach(offer -> move(offer, OfferStatus.EXPIRED));
-        return overdue.size();
+    /**
+     * The open offers whose deadline has passed.
+     *
+     * @return their ids
+     */
+    @Transactional(readOnly = true)
+    public List<Long> findOverdueOfferIds() {
+        return offerRepository.findByStatusInAndExpiresAtLessThanEqualAndActiveTrue(
+                        OfferStatus.openStatuses(), timeProvider.now())
+                .stream()
+                .map(Offer::getId)
+                .toList();
+    }
+
+    /**
+     * Expires one open offer whose deadline has passed. Does nothing if, by
+     * now, it was closed or its deadline was moved.
+     *
+     * @param offerId the offer id
+     * @return {@code true} if it expired
+     */
+    public boolean expireOffer(Long offerId) {
+        Offer offer = offerRepository.findById(offerId).orElse(null);
+        if (offer == null || offer.getStatus() == null || !offer.getStatus().isOpen()
+                || offer.getExpiresAt().isAfter(timeProvider.now())) {
+            return false;
+        }
+        move(offer, OfferStatus.EXPIRED);
+        return true;
     }
 
     /**

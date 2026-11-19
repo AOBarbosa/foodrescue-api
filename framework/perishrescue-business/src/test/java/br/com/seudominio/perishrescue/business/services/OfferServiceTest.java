@@ -427,10 +427,14 @@ class OfferServiceTest {
     @Test
     void expireOverdueOffersExpiresEveryOpenOfferPastItsDeadline() {
         Offer available = activeOffer(700L, 3);
+        available.setExpiresAt(NOW.minusMinutes(1));
         Offer soldOut = activeOffer(701L, 1);
         soldOut.takeUnits(1);
+        soldOut.setExpiresAt(NOW.minusMinutes(1));
         when(offerRepository.findByStatusInAndExpiresAtLessThanEqualAndActiveTrue(OfferStatus.openStatuses(), NOW))
                 .thenReturn(List.of(available, soldOut));
+        when(offerRepository.findById(700L)).thenReturn(Optional.of(available));
+        when(offerRepository.findById(701L)).thenReturn(Optional.of(soldOut));
 
         assertThat(service.expireOverdueOffers()).isEqualTo(2);
         assertThat(available.getStatus()).isEqualTo(OfferStatus.EXPIRED);

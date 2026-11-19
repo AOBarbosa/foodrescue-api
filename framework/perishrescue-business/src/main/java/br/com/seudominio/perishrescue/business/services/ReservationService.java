@@ -17,6 +17,7 @@ import br.com.seudominio.perishrescue.domain.dtos.ReserveOfferRequest;
 import br.com.seudominio.perishrescue.domain.entities.Beneficiary;
 import br.com.seudominio.perishrescue.domain.entities.Offer;
 import br.com.seudominio.perishrescue.domain.entities.Reservation;
+import br.com.seudominio.perishrescue.domain.entities.Sale;
 import br.com.seudominio.perishrescue.domain.enums.ReservationStatus;
 import br.com.seudominio.perishrescue.domain.exception.BusinessRuleViolationException;
 import br.com.seudominio.perishrescue.domain.exception.EntityNotFoundException;
@@ -24,6 +25,7 @@ import br.com.seudominio.perishrescue.domain.mappers.ReservationMapper;
 import br.com.seudominio.perishrescue.persistence.repositories.BeneficiaryRepository;
 import br.com.seudominio.perishrescue.persistence.repositories.OfferRepository;
 import br.com.seudominio.perishrescue.persistence.repositories.ReservationRepository;
+import br.com.seudominio.perishrescue.persistence.repositories.SaleRepository;
 
 import jakarta.validation.Validator;
 
@@ -50,7 +52,8 @@ import java.util.Objects;
  *       collecting all violations into one {@link ValidationException};</li>
  *   <li>price one unit for this beneficiary through the {@link PriceCalculator}
  *       (hot spot 2) and freeze it on the reservation;</li>
- *   <li>take the units from the offer, atomically ({@code @Version});</li>
+ *   <li>take the units from the offer, atomically ({@code @Version}), and hold
+ *       them in the resource's stock;</li>
  *   <li>create the reservation with a pickup code and a pickup deadline
  *       (now + {@code perishrescue.reservation.pickup-tolerance-minutes},
  *       but never after the offer's own deadline);</li>
@@ -58,7 +61,7 @@ import java.util.Objects;
  * </ol>
  *
  * <p>Afterwards a reservation is {@linkplain #confirmPickup rescued} by the
- * offerer with the pickup code (the units leave the resource's stock),
+ * offerer with the pickup code (recorded as a sale at the frozen price),
  * {@linkplain #cancel cancelled} by the beneficiary, or
  * {@linkplain #expireOverdueReservations expired} by the kernel when the
  * pickup window passes; the last two give the units back to the offer.</p>
@@ -79,6 +82,7 @@ public class ReservationService extends GenericService<Reservation, ReservationD
     private final OfferRepository offerRepository;
     private final ResourceService resourceService;
     private final BeneficiaryRepository beneficiaryRepository;
+    private final SaleRepository saleRepository;
     private final ReservationBusinessValidator reservationValidator;
     private final List<RescueRule> rescueRules;
     private final ReservationHistory reservationHistory;
@@ -99,6 +103,7 @@ public class ReservationService extends GenericService<Reservation, ReservationD
      * @param offerRepository        the offer repository
      * @param resourceService        the resource service, which owns the stock
      * @param beneficiaryRepository  the beneficiary repository
+     * @param saleRepository         the sale repository, where rescues are recorded
      * @param reservationValidator   the business validator for reservations
      * @param rescueRules            the instance's rescue rules (hot spot 3); may be empty
      * @param reservationHistory     read-only history for the rescue rules
@@ -116,6 +121,7 @@ public class ReservationService extends GenericService<Reservation, ReservationD
             OfferRepository offerRepository,
             ResourceService resourceService,
             BeneficiaryRepository beneficiaryRepository,
+            SaleRepository saleRepository,
             ReservationBusinessValidator reservationValidator,
             List<RescueRule> rescueRules,
             ReservationHistory reservationHistory,
@@ -130,6 +136,7 @@ public class ReservationService extends GenericService<Reservation, ReservationD
         this.offerRepository = offerRepository;
         this.resourceService = resourceService;
         this.beneficiaryRepository = beneficiaryRepository;
+        this.saleRepository = saleRepository;
         this.reservationValidator = reservationValidator;
         this.rescueRules = rescueRules == null ? List.of() : List.copyOf(rescueRules);
         this.reservationHistory = reservationHistory;
@@ -190,8 +197,9 @@ public class ReservationService extends GenericService<Reservation, ReservationD
         }
         LocalDateTime now = timeProvider.now();
 
-        // 1. load the participants
-        Beneficiary beneficiary = beneficiaryRepository.findById(beneficiaryId)
+        // 1. load the participants; the beneficiary row stays locked until commit, so concurrent
+        //    reservations by the same CPF are serialized and see each other in the quota check
+        Beneficiary beneficiary = beneficiaryRepository.findByIdForUpdate(beneficiaryId)
                 .orElseThrow(() -> new EntityNotFoundException(Beneficiary.class, beneficiaryId));
         Offer offer = offerRepository.findById(offerId)
                 .orElseThrow(() -> new EntityNotFoundException(Offer.class, offerId));
@@ -202,8 +210,10 @@ public class ReservationService extends GenericService<Reservation, ReservationD
         // 3. hot spot 2: unit price for this beneficiary, frozen on the reservation
         var unitPrice = priceCalculator.unitPriceFor(offer, beneficiary, now);
 
-        // 4. take the units (frozen invariants: available, not expired, enough units)
+        // 4. take the units from the offer (frozen invariants: available, not expired, enough units)
+        //    and hold them in the stock, so a counter sale cannot sell them meanwhile
         Offer reserved = offerService.decreaseQuantity(offerId, quantity);
+        resourceService.holdUnits(reserved.getResource(), quantity);
 
         // 5. create the reservation
         LocalDateTime pickupDeadline = earliest(now.plus(pickupTolerance), reserved.getExpiresAt());
@@ -257,7 +267,14 @@ public class ReservationService extends GenericService<Reservation, ReservationD
 
         reservation.transitionTo(ReservationStatus.RESCUED);
         reservation.setRescuedAt(now);
-        resourceService.releaseRescuedUnits(reservation.getOffer().getResource(), reservation.getQuantity());
+        // the units already left the stock when they were reserved; the rescue is recorded as a sale at
+        // the frozen price, so the waste and savings indicators and the demand history include it
+        saleRepository.save(Sale.builder()
+                .resource(reservation.getOffer().getResource())
+                .quantity(reservation.getQuantity())
+                .unitPrice(reservation.getUnitPrice())
+                .soldAt(now)
+                .build());
         return reservationMapper.toDto(announce(reservationRepository.save(reservation), ReservationStatus.RESERVED))
                 .withoutPickupCode();
     }
@@ -276,27 +293,60 @@ public class ReservationService extends GenericService<Reservation, ReservationD
         Reservation reservation = findForBeneficiary(reservationId, beneficiaryId);
 
         reservation.transitionTo(ReservationStatus.CANCELLED);
-        offerService.returnUnits(reservation.getOffer(), reservation.getQuantity());
+        giveUnitsBack(reservation);
         return reservationMapper.toDto(announce(reservationRepository.save(reservation), ReservationStatus.RESERVED));
     }
 
     /**
-     * Expires every reservation whose pickup window has passed and gives its
-     * units back to the offer. Run periodically by the kernel's
-     * {@code ExpirationMonitor}.
+     * Expires, in one go, every reservation whose pickup window has passed.
+     * The {@code ExpirationMonitor} does not use it: it calls
+     * {@link #findOverdueReservationIds()} and {@link #expireReservation(Long)}
+     * so that each reservation expires in its own transaction.
      *
      * @return how many reservations expired
      */
     public int expireOverdueReservations() {
-        List<Reservation> overdue = reservationRepository
-                .findByStatusAndPickupDeadlineLessThanEqualAndActiveTrue(ReservationStatus.RESERVED, timeProvider.now());
-
-        for (Reservation reservation : overdue) {
-            reservation.transitionTo(ReservationStatus.EXPIRED);
-            offerService.returnUnits(reservation.getOffer(), reservation.getQuantity());
-            announce(reservationRepository.save(reservation), ReservationStatus.RESERVED);
+        int expired = 0;
+        for (Long id : findOverdueReservationIds()) {
+            if (expireReservation(id)) {
+                expired++;
+            }
         }
-        return overdue.size();
+        return expired;
+    }
+
+    /**
+     * The reservations still held whose pickup window has passed.
+     *
+     * @return their ids
+     */
+    @Transactional(readOnly = true)
+    public List<Long> findOverdueReservationIds() {
+        return reservationRepository
+                .findByStatusAndPickupDeadlineLessThanEqualAndActiveTrue(ReservationStatus.RESERVED, timeProvider.now())
+                .stream()
+                .map(Reservation::getId)
+                .toList();
+    }
+
+    /**
+     * Expires one reservation whose pickup window has passed and gives its
+     * units back to the offer. Does nothing if, by now, it was picked up,
+     * cancelled or is still within its window.
+     *
+     * @param reservationId the reservation id
+     * @return {@code true} if it expired
+     */
+    public boolean expireReservation(Long reservationId) {
+        Reservation reservation = reservationRepository.findById(reservationId).orElse(null);
+        if (reservation == null || reservation.getStatus() != ReservationStatus.RESERVED
+                || reservation.getPickupDeadline().isAfter(timeProvider.now())) {
+            return false;
+        }
+        reservation.transitionTo(ReservationStatus.EXPIRED);
+        giveUnitsBack(reservation);
+        announce(reservationRepository.save(reservation), ReservationStatus.RESERVED);
+        return true;
     }
 
     /**
@@ -339,6 +389,11 @@ public class ReservationService extends GenericService<Reservation, ReservationD
     @Transactional(readOnly = true)
     public ReservationDTO findByIdForBeneficiary(Long id, Long beneficiaryId) {
         return reservationMapper.toDto(findForBeneficiary(id, beneficiaryId));
+    }
+
+    private void giveUnitsBack(Reservation reservation) {
+        resourceService.releaseHeldUnits(reservation.getOffer().getResource(), reservation.getQuantity());
+        offerService.returnUnits(reservation.getOffer(), reservation.getQuantity());
     }
 
     private void checkRescueRules(RescueContext context) {

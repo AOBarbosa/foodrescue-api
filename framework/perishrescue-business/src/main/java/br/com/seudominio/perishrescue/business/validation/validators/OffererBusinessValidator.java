@@ -9,9 +9,15 @@ import br.com.seudominio.perishrescue.persistence.repositories.OffererRepository
 
 import jakarta.validation.Validator;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 /**
  * Business validator for {@link Offerer} entity.
@@ -30,15 +36,37 @@ public class OffererBusinessValidator extends AbstractValidator<Offerer>
 
     private final OffererRepository offererRepository;
 
+    private final Set<String> allowedCategories;
+
     /**
-     * Constructor for {@code OffererBusinessValidator} with dependency injection.
+     * Constructor accepting any category.
      *
-     * @param validator               the bean validator
+     * @param validator         the bean validator
      * @param offererRepository the offerer repository
      */
     public OffererBusinessValidator(Validator validator, OffererRepository offererRepository) {
+        this(validator, offererRepository, List.of());
+    }
+
+    /**
+     * Constructor for {@code OffererBusinessValidator} with dependency injection.
+     *
+     * @param validator         the bean validator
+     * @param offererRepository the offerer repository
+     * @param allowedCategories the categories the instance accepts
+     *                          ({@code perishrescue.offerer.categories}); empty accepts any
+     */
+    @Autowired
+    public OffererBusinessValidator(
+            Validator validator,
+            OffererRepository offererRepository,
+            @Value("${perishrescue.offerer.categories:}") List<String> allowedCategories) {
         this.validator = validator;
         this.offererRepository = offererRepository;
+        this.allowedCategories = allowedCategories == null ? Set.of() : allowedCategories.stream()
+                .map(String::trim)
+                .filter(category -> !category.isEmpty())
+                .collect(Collectors.toUnmodifiableSet());
     }
 
     /**
@@ -58,6 +86,25 @@ public class OffererBusinessValidator extends AbstractValidator<Offerer>
         validateCnpjUnique(offerer);
         validateEmailUnique(offerer);
         validateBusinessHours(offerer);
+        validateCategory(offerer);
+    }
+
+    /**
+     * Validates the category against the ones the instance accepts
+     * ({@code perishrescue.offerer.categories}); any category passes when the
+     * instance lists none.
+     *
+     * @param offerer the offerer entity to validate
+     */
+    private void validateCategory(Offerer offerer) {
+        String category = offerer.getCategory();
+        if (allowedCategories.isEmpty() || category == null || category.isBlank()) {
+            return; // blank is already reported by bean validation
+        }
+        if (!allowedCategories.contains(category)) {
+            addError("category must be one of " + new TreeSet<>(allowedCategories),
+                    "category", category, "INVALID_CATEGORY");
+        }
     }
 
     /**

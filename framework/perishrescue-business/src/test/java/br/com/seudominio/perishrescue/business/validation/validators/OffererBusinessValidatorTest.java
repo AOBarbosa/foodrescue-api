@@ -50,6 +50,35 @@ class OffererBusinessValidatorTest {
     }
 
     @Test
+    void rejectsACategoryTheInstanceDoesNotAccept() {
+        OffererRepository repository = mock(OffererRepository.class);
+        when(repository.findByCnpj(VALID_CNPJ)).thenReturn(Optional.empty());
+        when(repository.findByEmail("padaria@example.com")).thenReturn(Optional.empty());
+        OffererBusinessValidator validator = new OffererBusinessValidator(beanValidator, repository,
+                java.util.List.of("BAKERY", " MARKET "));
+
+        validator.validateOperation(validOfferer(), BusinessOperation.CREATE);
+
+        Offerer typo = validOfferer();
+        typo.setCategory("PADAIRA");
+        assertThatThrownBy(() -> validator.validateOperation(typo, BusinessOperation.CREATE))
+                .isInstanceOf(ValidationException.class)
+                .satisfies(ex -> assertThat(((ValidationException) ex).getErrors())
+                        .anySatisfy(error -> assertThat(error.code()).isEqualTo("INVALID_CATEGORY")));
+    }
+
+    @Test
+    void acceptsAnyCategoryWhenTheInstanceListsNone() {
+        OffererRepository repository = mock(OffererRepository.class);
+        when(repository.findByCnpj(VALID_CNPJ)).thenReturn(Optional.empty());
+        when(repository.findByEmail("padaria@example.com")).thenReturn(Optional.empty());
+        Offerer pharmacy = validOfferer();
+        pharmacy.setCategory("PHARMACY");
+
+        new OffererBusinessValidator(beanValidator, repository).validateOperation(pharmacy, BusinessOperation.CREATE);
+    }
+
+    @Test
     void rejectsOpeningTimeNotBeforeClosingTime() {
         OffererRepository repository = mock(OffererRepository.class);
         when(repository.findByCnpj(VALID_CNPJ)).thenReturn(Optional.empty());

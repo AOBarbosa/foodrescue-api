@@ -261,20 +261,37 @@ public class ResourceService extends GenericService<PerishableResource, Resource
     }
 
     /**
-     * Takes the units of a rescued reservation out of the resource's stock:
-     * they physically left the offerer. Never drives the stock below zero
-     * (it may have been adjusted by hand in the meantime) and announces a
-     * depleted stock like any other deduction.
+     * Holds the units of a new reservation: they leave the sellable stock, so a
+     * counter sale (UC04) can no longer sell what a beneficiary reserved. Does
+     * not announce a depleted stock: the reserved units still exist and come
+     * back with {@link #releaseHeldUnits} if the reservation is cancelled or
+     * expires.
      *
      * @param resource the reserved resource
-     * @param quantity the rescued units
+     * @param quantity the reserved units
+     * @return the updated resource
+     * @throws BusinessRuleViolationException if the stock no longer has that many units
+     *                                        (e.g. they were sold at the counter meanwhile)
+     */
+    public PerishableResource holdUnits(PerishableResource resource, int quantity) {
+        if (resource.getStockQuantity() < quantity) {
+            throw new BusinessRuleViolationException(String.format(
+                    "resource %d has only %d units in stock", resource.getId(), resource.getStockQuantity()));
+        }
+        resource.setStockQuantity(resource.getStockQuantity() - quantity);
+        return resourceRepository.save(resource);
+    }
+
+    /**
+     * Gives back to the stock the units of a cancelled or expired reservation.
+     *
+     * @param resource the reserved resource
+     * @param quantity the units to give back
      * @return the updated resource
      */
-    public PerishableResource releaseRescuedUnits(PerishableResource resource, int quantity) {
-        resource.setStockQuantity(Math.max(0, resource.getStockQuantity() - quantity));
-        PerishableResource saved = resourceRepository.save(resource);
-        announceIfDepleted(saved);
-        return saved;
+    public PerishableResource releaseHeldUnits(PerishableResource resource, int quantity) {
+        resource.setStockQuantity(resource.getStockQuantity() + quantity);
+        return resourceRepository.save(resource);
     }
 
     /**
